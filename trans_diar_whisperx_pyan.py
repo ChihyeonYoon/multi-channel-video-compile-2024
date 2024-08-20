@@ -69,7 +69,7 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device, re
 # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels
-diarize_model = whisperx.DiarizationPipeline(use_auth_token="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", device=device)
+diarize_model = whisperx.DiarizationPipeline(use_auth_token="your access token", device=device)
 diarize_model2 = PyannoteDiarizationPipeline()
 
 # add min/max number of speakers if known
