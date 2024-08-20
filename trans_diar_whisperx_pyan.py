@@ -79,7 +79,7 @@ diarize_segments = diarize_model(audio_file, num_speakers=4)
 # result = whisperx.assign_word_speakers(diarize_segments, result)
 result = whisperx.assign_word_speakers(diarize_segments, result)
 
-with open("transcrition.json", "w", encoding='utf8') as f:
+with open("transcriptions.json", "w", encoding='utf8') as f:
     json.dump(result["segments"], f, ensure_ascii=False, indent=4)
 
 diarizations=[]
