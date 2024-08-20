@@ -7,4 +7,5 @@ This solution is implemented referring to the whisperx and pyannote-audio speech
 
 # Compiled sample
 
-[Watch the video](https://drive.google.com/file/d/1ko35PoP73wdun_YEoDvPv1gI7v5Jq4oK/view?usp=drive_link)
+<iframe src="https://drive.google.com/file/d/1ko35PoP73wdun_YEoDvPv1gI7v5Jq4oK/preview" width="640" height="480"></iframe>
+
