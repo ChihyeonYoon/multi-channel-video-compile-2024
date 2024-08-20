@@ -7,14 +7,15 @@ from typing import Optional, Union
 import pandas as pd
 import numpy as np
 import torch
+import argparse
 
 class PyannoteDiarizationPipeline:
     def __init__(
         self,
-        model_wight= "pytorch_model.bin",
+        model_wight= "/NasData/home/ych/Diar_Recog_Ident/workspace/0813/pytorch_model.bin",
         device = "cuda:0" if torch.cuda.is_available() else "cpu",
     ):
-        self.model = Model.from_pretrained('./pytorch_model.bin')
+        self.model = Model.from_pretrained('/NasData/home/ych/Diar_Recog_Ident/workspace/0813/pytorch_model.bin')
         self.pipeline = SpeakerDiarization(segmentation=self.model)
         HYPER_PARAMETERS = {
             'segmentation': {
@@ -39,7 +40,7 @@ class PyannoteDiarizationPipeline:
         return diarize_df
 
 device = "cuda" 
-audio_file = "/home/ych/workspace/materials/thelive/audio.wav"
+audio_file = "/NasData/home/ych/Diar_Recog_Ident/workspace/materials/thelive/audio.wav"
 batch_size = 16 # reduce if low on GPU mem
 compute_type = "float16" # change to "int8" if low on GPU mem (may reduce accuracy)
 
@@ -67,35 +68,19 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device, re
 # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels
-diarize_model = whisperx.DiarizationPipeline(use_auth_token="your access token", device=device)
-diarize_model2 = PyannoteDiarizationPipeline()
+# diarize_model = whisperx.DiarizationPipeline(use_auth_token="your access token", device=device)
+diarize_model = PyannoteDiarizationPipeline()
 
 # add min/max number of speakers if known
-diarize_segments = diarize_model(audio, min_speakers=4, max_speakers=4)
-diarize_segments2 = diarize_model2(audio_file, num_speakers=4)
+# diarize_segments = diarize_model(audio, min_speakers=4, max_speakers=4)
+diarize_segments = diarize_model(audio_file, num_speakers=4)
 # diarize_model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
 
+# result = whisperx.assign_word_speakers(diarize_segments, result)
 result = whisperx.assign_word_speakers(diarize_segments, result)
-result2 = whisperx.assign_word_speakers(diarize_segments2, result)
 
-with open("transcribe.json", "w", encoding='utf8') as f:
+with open("transcrition.json", "w", encoding='utf8') as f:
     json.dump(result["segments"], f, ensure_ascii=False, indent=4)
-
-with open("transcribe2.json", "w", encoding='utf8') as f:
-    json.dump(result2["segments"], f, ensure_ascii=False, indent=4)
-
-
-# print(diarize_segments)
-# print(diarize_segments.columns)
-# print(type(diarize_segments.iloc[0][0]), type(diarize_segments.iloc[0][1]), type(diarize_segments.iloc[0][2]), type(diarize_segments.iloc[0][3]), type(diarize_segments.iloc[0][4]), type(diarize_segments.iloc[0][5]))
-
-# for line in result["segments"]:
-#     print(line)
-# print(result["segments"]) # segments are now assigned speaker IDs
-
-
-# # diarize_segments=diarize_segments.to_dict(orient='dict')
-# print(type(diarize_segments))
 
 diarizations=[]
 for i in range(len(diarize_segments)):
@@ -109,22 +94,6 @@ for i in range(len(diarize_segments)):
     }
     diarizations.append(item)
 
-with open("diarize.json", "w", encoding='utf8') as f:
+with open("diarizations.json", "w", encoding='utf8') as f:
     json.dump(diarizations, f, ensure_ascii=False, indent=4)
-
-
-diarizations2=[]
-for i in range(len(diarize_segments2)):
-    item = {
-        "segment": (diarize_segments2.iloc[i].loc['segment'].start, diarize_segments2.iloc[i].loc['segment'].end),
-        "start": diarize_segments2.iloc[i].loc['start'],
-        "end": diarize_segments2.iloc[i].loc['end'],
-        "speaker": diarize_segments2.iloc[i].loc['speaker'],
-        'intersection': diarize_segments2.iloc[i].loc['intersection'],
-        'union': diarize_segments2.iloc[i].loc['union']
-    }
-    diarizations2.append(item)
-
-with open("diarize2.json", "w", encoding='utf8') as f:
-    json.dump(diarizations2, f, ensure_ascii=False, indent=4)
 
