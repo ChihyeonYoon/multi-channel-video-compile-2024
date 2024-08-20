@@ -38,8 +38,6 @@ class PyannoteDiarizationPipeline:
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
         return diarize_df
 
-
-
 device = "cuda" 
 audio_file = "/home/ych/workspace/materials/thelive/audio.wav"
 batch_size = 16 # reduce if low on GPU mem
