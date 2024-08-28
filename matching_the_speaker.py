@@ -7,19 +7,7 @@ from torch import nn
 from torchvision.models import swin_v2_b, Swin_V2_B_Weights
 
 """
-elif model_name == 'swin_v2_b':
-    weights = Swin_V2_B_Weights.IMAGENET1K_V1
-    model = swin_v2_b(weights=weights)
-    preprocess = weights.transforms()
-    
-    model.head = nn.Linear(model.head.in_features, num_classes)
-    if not full_train:
-        for param in model.parameters():
-            param.requires_grad = False
-        for param in model.head.parameters():
-            param.requires_grad = True
-    return model, preprocess
-
+240829 Test needs to be done
 """
 
 class Speak_detector:
@@ -38,19 +26,21 @@ class Speak_detector:
         frame = frame.unsqueeze(0).cuda()
         with torch.no_grad():
             self.model.eval()
-            output = self.model(frame)
+            output = self.model(frame) # ['silent', 'utter'] * batch_size
             _, predicted = torch.max(output, 1)
             return predicted.item()
 
 
 class SpeakerMatcher:
-    def __init__(self, video_list, segment):
+    def __init__(self, video_list, segments):
         self.video_list = video_list
         # self.video_list = map(lambda x:x.split('/')[-1], video_list)
-        self.segment = segment
+        self.segments = segments
 
         self.face_mesh = mediapipe.solutions.face_mesh
         self.face_mesh = self.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5)
+
+        self.speak_detector = Speak_detector('snapshot.pth')
 
     def euclidean_distance(self, point1, point2):
         point1 = np.array(point1)
@@ -121,24 +111,33 @@ class SpeakerMatcher:
             traceback.print_exc()
             return None, None
     
-    def __call__(self):
+    def match_speaker(self):
+        for seg in self.segments:
+            cnt_per_video = []
+            for video in self.video_list: # video_num = speaker_num
+                cnts = 0 
 
-        for video in self.video_list:
-            cap = cv2.VideoCapture(video)
-            speak_frames = []
-            while cap.isOpened():
-                frame_n = cap.get(cv2.CAP_PROP_POS_FRAMES)
-                
-                if frame_n < self.segment[0] or frame_n > self.segment[1]:
-                    continue
-                
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                lip_coords, state = self.lip_detection_in_frame(frame)
+                cap = cv2.VideoCapture(video)
+                while cap.isOpened():
+                    current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+                    
+                    if current_frame < seg[0] or current_frame > seg[1]:
+                        continue
+                            
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
 
-                if state:
-                    speak_frames.append(frame)
+                    lip_coords, state = self.lip_detection_in_frame(frame)
+
+                    if state:
+                        prob = self.speak_detector(frame)
+                        if prob[0] < prob[1]:
+                            cnts += 1
+                cnt_per_video.append(cnts)
+            
+            print(cnt_per_video.index(max(cnt_per_video)))
+            
 
 '''
 pseudocode
@@ -146,8 +145,16 @@ pseudocode
 video_list = [video1, video2, ...] 
 segments = [(start1, end1), (start2, end2), ...] # first speaking segment of each speaker
 
-for video in video_list:
-    cap = cv2.VideoCapture(video)
+for seg in segments:
+    for video in video_list:
+        cap = cv2.VideoCapture(video)
+        current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+        
+        if current_frame < seg[0] or current_frame > seg[1]:
+            continue
+            
+        ret, frame = cap.read()
+
 
 
 
