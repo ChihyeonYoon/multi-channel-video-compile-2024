@@ -107,6 +107,8 @@ video_list = [video1, video2, ...]
 segments = [(start1, end1), (start2, end2), ...] # first speaking segment of each speaker
 
 for video in video_list:
+    cap = cv2.VideoCapture(video)
+    
 
 
 
