@@ -82,7 +82,7 @@ class SpeakerMatcher:
             return None, None
     
     def __call__(self):
-        
+
         for video in self.video_list:
             cap = cv2.VideoCapture(video)
             speak_frames = []
@@ -99,7 +99,18 @@ class SpeakerMatcher:
 
                 if state:
                     speak_frames.append(frame)
-                
+
+'''
+pseudocode
+
+video_list = [video1, video2, ...] 
+segments = [(start1, end1), (start2, end2), ...] # first speaking segment of each speaker
+
+for video in video_list:
+
+
+
+'''             
 
 
 # def euclidean_distance(point1, point2):
