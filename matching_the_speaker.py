@@ -1,4 +1,3 @@
-from re import S
 import cv2
 import mediapipe
 import numpy as np
