@@ -1,7 +1,48 @@
+from re import S
 import cv2
 import mediapipe
 import numpy as np
 import traceback
+import torch
+from torch import nn
+from torchvision.models import swin_v2_b, Swin_V2_B_Weights
+
+"""
+elif model_name == 'swin_v2_b':
+    weights = Swin_V2_B_Weights.IMAGENET1K_V1
+    model = swin_v2_b(weights=weights)
+    preprocess = weights.transforms()
+    
+    model.head = nn.Linear(model.head.in_features, num_classes)
+    if not full_train:
+        for param in model.parameters():
+            param.requires_grad = False
+        for param in model.head.parameters():
+            param.requires_grad = True
+    return model, preprocess
+
+"""
+
+class Speak_detector:
+    def __init__(self, snapshot_path):
+        self.snapshot_path = snapshot_path
+        self.model = swin_v2_b()
+        self.preprocess = Swin_V2_B_Weights.IMAGENET1K_V1.transforms()
+        self.model.head = nn.Linear(self.model.head.in_features, 2)
+
+        checkpoint = torch.load(snapshot_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model = nn.DataParallel(self.model).cuda()
+
+    def __call__(self, frame):
+        frame = self.preprocess(frame)
+        frame = frame.unsqueeze(0).cuda()
+        with torch.no_grad():
+            self.model.eval()
+            output = self.model(frame)
+            _, predicted = torch.max(output, 1)
+            return predicted.item()
+
 
 class SpeakerMatcher:
     def __init__(self, video_list, segment):
@@ -108,7 +149,7 @@ segments = [(start1, end1), (start2, end2), ...] # first speaking segment of eac
 
 for video in video_list:
     cap = cv2.VideoCapture(video)
-    
+
 
 
 
