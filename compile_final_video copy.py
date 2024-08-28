@@ -56,6 +56,28 @@ def parse_transcript(file_path):
     
     return speaker_segments
 
+def parse_transcript2(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        trans_list = json.load(file)
+
+    segments = {}
+
+    for i, item in enumerate(trans_list):
+        start_time = float(item['start'])
+        end_time = float(item['end'])
+        start_frame = time_to_frames(start_time)
+        end_frame = time_to_frames(end_time)
+
+        speaker = str(item['speaker'])
+
+        segments[i] = {'start': start_time, 
+                       'end': end_time,
+                       'start_frame': start_frame,
+                       'end_frame': end_frame, 
+                       'speaker': speaker}
+    
+    return segments
+
 def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
     adjusted_channels = channels.copy()
     length = len(channels)
@@ -111,6 +133,34 @@ if __name__ == '__main__':
     # print(segments)
     for k in segments.keys():
         print(f'{k}: {len(segments[k])} frames')
+
+    segments2 = parse_transcript2(file_path)
+    # for k, segment in segments2.items():
+    #     print(f"{k} {segment['start']} - {segment['end']} {segment['speaker']}")
+
+    spker0_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_00'), None)
+    spker1_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_01'), None)
+    spker2_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_02'), None)
+    spker3_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_03'), None)
+
+    spker0_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_00'), None) 
+    spker1_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_01'), None)
+    spker2_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_02'), None)
+    spker3_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_03'), None)
+
+    print(f"Speaker 0: {spker0_first_segment['start']} - {spker0_first_segment['end']}") if spker0_first_segment else None
+    print(f"Speaker 0: {spker0_last_segment['start']} - {spker0_last_segment['end']}") if spker0_last_segment else None
+
+    print(f"Speaker 1: {spker1_first_segment['start']} - {spker1_first_segment['end']}") if spker1_first_segment else None
+    print(f"Speaker 1: {spker1_last_segment['start']} - {spker1_last_segment['end']}") if spker1_last_segment else None
+    
+    print(f"Speaker 2: {spker2_first_segment['start']} - {spker2_first_segment['end']}") if spker2_first_segment else None
+    print(f"Speaker 2: {spker2_last_segment['start']} - {spker2_last_segment['end']}") if spker2_last_segment else None
+    
+    print(f"Speaker 3: {spker3_first_segment['start']} - {spker3_first_segment['end']}") if spker3_first_segment else None
+    print(f"Speaker 3: {spker3_last_segment['start']} - {spker3_last_segment['end']}") if spker3_last_segment else None
+
+    exit()
     
     widechannel_video = cv2.VideoCapture(args.widechannel_video)
     speaker1_video = cv2.VideoCapture(args.speaker2_video) # C
