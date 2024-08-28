@@ -1,4 +1,5 @@
 import json
+from tracemalloc import start
 import cv2
 import time
 import os
@@ -53,6 +54,28 @@ def parse_transcript(file_path):
     
     return speaker_segments
 
+def parse_transcript2(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        trans_list = json.load(file)
+
+    segments = {}
+
+    for i, item in enumerate(trans_list):
+        start_time = float(item['start'])
+        end_time = float(item['end'])
+        start_frame = time_to_frames(start_time)
+        end_frame = time_to_frames(end_time)
+
+        speaker = str(item['speaker'])
+
+        segments[i] = {'start': start_time, 
+                       'end': end_time,
+                       'start_frame': start_frame,
+                       'end_frame': end_frame, 
+                       'speaker': speaker}
+    
+    return segments
+
 def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
     adjusted_channels = channels.copy()
     length = len(channels)
@@ -81,23 +104,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # 38101 frames
     parser.add_argument('--widechannel_video', type=str, 
-                        default='/home/ych/workspace/materials/thelive/W.mp4',
+                        default='/NasData/home/ych/2024_Multicam/materials/thelive/W.mp4',
                         help='widechannel_video')
     parser.add_argument('--speaker1_video', type=str, 
-                        default='/home/ych/workspace/materials/thelive/C.mp4', # C
+                        default='/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4', # C
                         help='speaker1_video')
     parser.add_argument('--speaker2_video', type=str, 
-                        default='/home/ych/workspace/materials/thelive/D.mp4', # D
+                        default='/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4', # D
                         help='speaker2_video')
     parser.add_argument('--speaker3_video', type=str, 
-                        default='/home/ych/workspace/materials/thelive/MC.mp4', # MC
+                        default='/NasData/home/ych/2024_Multicam/materials/thelive/MC.mp4', # MC
                         help='speaker3_video')
     
     parser.add_argument('--start_frame', type=int, default=0)
     parser.add_argument('--end_frame', type=int, default=None)
     
-    parser.add_argument('--transcript_file', type=str, default='/home/ych/workspace/0813/transcribe2.json')
-    parser.add_argument('--final_video_path', type=str, default='/home/ych/workspace/0813/samples/sample_thelive.mp4',
+    parser.add_argument('--transcript_file', type=str, default='/NasData/home/ych/multi-channel-video-compile/transcription.json')
+    parser.add_argument('--final_video_path', type=str, default='/NasData/home/ych/multi-channel-video-compile/compiled_sample/sample_thelive.mp4',
                         help='final video path') 
     args = parser.parse_args()
 
@@ -105,6 +128,16 @@ if __name__ == '__main__':
     segments = parse_transcript(file_path) 
 
     print(segments.keys())
+    # print(segments)
+    for k in segments.keys():
+        print(f'{k}: {len(segments[k])} frames')
+
+    segments2 = parse_transcript2(file_path)
+    for k, segment in segments2.items():
+        print(f"{k} {segment['start']} - {segment['end']} {segment['speaker']}")
+
+
+    exit()
     
     widechannel_video = cv2.VideoCapture(args.widechannel_video)
     speaker1_video = cv2.VideoCapture(args.speaker2_video) # C
