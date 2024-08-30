@@ -18,8 +18,10 @@ class Speak_detector:
         self.model.head = nn.Linear(self.model.head.in_features, 2)
 
         checkpoint = torch.load(snapshot_path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model = nn.DataParallel(self.model).cuda()
+        # print(checkpoint.keys())
+        # exit()
+        self.model.module.load_state_dict(checkpoint['model'])
 
     def __call__(self, frame):
         frame = self.preprocess(frame)
@@ -40,7 +42,7 @@ class SpeakerMatcher:
         self.face_mesh = mediapipe.solutions.face_mesh
         self.face_mesh = self.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5)
 
-        self.speak_detector = Speak_detector('snapshot.pth')
+        self.speak_detector = Speak_detector('/NasData/home/ych/2024_Multicam/checkpoints/run0621_0339/snapshot_swin_v2_b_2_0.9563032640482664.pth')
 
     def euclidean_distance(self, point1, point2):
         point1 = np.array(point1)
@@ -116,27 +118,34 @@ class SpeakerMatcher:
             cnt_per_video = []
             for video in self.video_list: # video_num = speaker_num
                 cnts = 0 
-
+                print(video)
+                # exit()
                 cap = cv2.VideoCapture(video)
                 while cap.isOpened():
-                    current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
-                    
-                    if current_frame < seg[0] or current_frame > seg[1]:
-                        continue
-                            
                     ret, frame = cap.read()
+                    current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+                    # print("current_frame: ", current_frame)
+                    if current_frame < seg[0]:
+                        continue
+                    if current_frame > seg[1]:
+                        break
+                            
+
                     if not ret:
                         break
 
                     lip_coords, state = self.lip_detection_in_frame(frame)
+                    print(lip_coords, state)
 
                     if state:
+                        lip_roi = frame[lip_coords[1]:lip_coords[3], lip_coords[0]:lip_coords[2]]
                         prob = self.speak_detector(frame)
                         if prob[0] < prob[1]:
                             cnts += 1
                 cnt_per_video.append(cnts)
+                cap.release()
             
-            print(cnt_per_video.index(max(cnt_per_video)))
+                print(f"[{seg[0]}-{seg[1]}] : {video} : {cnt_per_video.index(max(cnt_per_video))}")
             
 
 '''
@@ -154,11 +163,6 @@ for seg in segments:
             continue
             
         ret, frame = cap.read()
-
-
-
-
-
 '''             
 
 

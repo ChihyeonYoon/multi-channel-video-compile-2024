@@ -10,6 +10,8 @@ import re
 
 import scipy as sp
 
+from matching_the_speaker import SpeakerMatcher
+
 def frame_number_to_hhmmss(frame_number, frames_per_second=30):
     total_seconds = frame_number / frames_per_second
     hours, remainder = divmod(total_seconds, 3600)
@@ -121,8 +123,8 @@ if __name__ == '__main__':
     parser.add_argument('--start_frame', type=int, default=0)
     parser.add_argument('--end_frame', type=int, default=None)
     
-    parser.add_argument('--transcript_file', type=str, default='/NasData/home/ych/multi-channel-video-compile/transcription.json')
-    parser.add_argument('--final_video_path', type=str, default='/NasData/home/ych/multi-channel-video-compile/compiled_sample/sample_thelive.mp4',
+    parser.add_argument('--transcript_file', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/transcription.json')
+    parser.add_argument('--final_video_path', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive.mp4',
                         help='final video path') 
     args = parser.parse_args()
 
@@ -160,6 +162,18 @@ if __name__ == '__main__':
     print(f"Speaker 3: {spker3_first_segment['start']} - {spker3_first_segment['end']}") if spker3_first_segment else None
     print(f"Speaker 3: {spker3_last_segment['start']} - {spker3_last_segment['end']}") if spker3_last_segment else None
 
+    first_segments = [
+        [spker0_first_segment['start'], spker0_first_segment['end']], 
+        [spker1_first_segment['start'], spker1_first_segment['end']], 
+        [spker2_first_segment['start'], spker2_first_segment['end']],
+        [spker3_first_segment['start'], spker3_first_segment['end']]
+        ]
+    SpeakerMatcher = SpeakerMatcher(video_list=[args.speaker1_video, 
+                                                args.speaker2_video, 
+                                                # args.speaker3_video
+                                                ], 
+                                                segments=first_segments)
+    SpeakerMatcher.match_speaker()
     exit()
     
     widechannel_video = cv2.VideoCapture(args.widechannel_video)
