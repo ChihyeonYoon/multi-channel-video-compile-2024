@@ -3,6 +3,7 @@ from tracemalloc import start
 import cv2
 import time
 import os
+from more_itertools import first
 from moviepy.editor import AudioFileClip, VideoFileClip
 from collections import Counter
 import argparse
@@ -150,28 +151,39 @@ if __name__ == '__main__':
     spker2_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_02'), None)
     spker3_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_03'), None)
 
-    print(f"Speaker 0: {spker0_first_segment['start']} - {spker0_first_segment['end']}") if spker0_first_segment else None
-    print(f"Speaker 0: {spker0_last_segment['start']} - {spker0_last_segment['end']}") if spker0_last_segment else None
+    print(f"Speaker 0: {spker0_first_segment['start']} {spker0_first_segment['end']} | {spker0_first_segment['start_frame']} - {spker0_first_segment['end_frame']}") if spker0_first_segment else None
+    print(f"Speaker 0: {spker0_last_segment['start']} {spker0_last_segment['end']} | {spker0_last_segment['start_frame']} - {spker0_last_segment['end_frame']}") if spker0_last_segment else None
 
-    print(f"Speaker 1: {spker1_first_segment['start']} - {spker1_first_segment['end']}") if spker1_first_segment else None
-    print(f"Speaker 1: {spker1_last_segment['start']} - {spker1_last_segment['end']}") if spker1_last_segment else None
+    print(f"Speaker 1: {spker1_first_segment['start']} {spker1_first_segment['end']} | {spker1_first_segment['start_frame']} - {spker1_first_segment['end_frame']}") if spker1_first_segment else None
+    print(f"Speaker 1: {spker1_last_segment['start']} {spker1_last_segment['end']} | {spker1_last_segment['start_frame']} - {spker1_last_segment['end_frame']}") if spker1_last_segment else None
     
-    print(f"Speaker 2: {spker2_first_segment['start']} - {spker2_first_segment['end']}") if spker2_first_segment else None
-    print(f"Speaker 2: {spker2_last_segment['start']} - {spker2_last_segment['end']}") if spker2_last_segment else None
+    print(f"Speaker 2: {spker2_first_segment['start']} {spker2_first_segment['end']} | {spker2_first_segment['start_frame']} - {spker2_first_segment['end_frame']}") if spker2_first_segment else None
+    print(f"Speaker 2: {spker2_last_segment['start']} {spker2_last_segment['end']} | {spker2_last_segment['start_frame']} - {spker2_last_segment['end_frame']}") if spker2_last_segment else None
     
-    print(f"Speaker 3: {spker3_first_segment['start']} - {spker3_first_segment['end']}") if spker3_first_segment else None
-    print(f"Speaker 3: {spker3_last_segment['start']} - {spker3_last_segment['end']}") if spker3_last_segment else None
+    print(f"Speaker 3: {spker3_first_segment['start']} {spker3_first_segment['end']} | {spker3_first_segment['start_frame']} - {spker3_first_segment['end_frame']}") if spker3_first_segment else None
+    print(f"Speaker 3: {spker3_last_segment['start']} {spker3_last_segment['end']} | {spker3_last_segment['start_frame']} - {spker3_last_segment['end_frame']}") if spker3_last_segment else None
+
+    # first_segments = [
+    #     list(map(time_to_frames, [spker0_first_segment['start'], spker0_first_segment['end']])), 
+    #     list(map(time_to_frames, [spker1_first_segment['start'], spker1_first_segment['end']])), 
+    #     list(map(time_to_frames, [spker2_first_segment['start'], spker2_first_segment['end']])),
+    #     list(map(time_to_frames, [spker3_first_segment['start'], spker3_first_segment['end']]))
+    #     ]
 
     first_segments = [
-        [spker0_first_segment['start'], spker0_first_segment['end']], 
-        [spker1_first_segment['start'], spker1_first_segment['end']], 
-        [spker2_first_segment['start'], spker2_first_segment['end']],
-        [spker3_first_segment['start'], spker3_first_segment['end']]
-        ]
-    SpeakerMatcher = SpeakerMatcher(video_list=[args.speaker1_video, 
-                                                args.speaker2_video, 
-                                                # args.speaker3_video
-                                                ], 
+        [spker0_first_segment['start_frame'], spker0_first_segment['end_frame']],
+        [spker1_first_segment['start_frame'], spker1_first_segment['end_frame']],
+        [spker2_first_segment['start_frame'], spker2_first_segment['end_frame']],
+        [spker3_first_segment['start_frame'], spker3_first_segment['end_frame']]
+    ]
+
+    print(first_segments)
+    video_list = ['/NasData/home/ych/2024_Multicam/materials/thelive/MC_left.mp4',
+                  '/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4',
+                  '/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4',
+                  '/NasData/home/ych/2024_Multicam/materials/thelive/MC_right.mp4']
+    
+    SpeakerMatcher = SpeakerMatcher(video_list=video_list, 
                                                 segments=first_segments)
     SpeakerMatcher.match_speaker()
     exit()

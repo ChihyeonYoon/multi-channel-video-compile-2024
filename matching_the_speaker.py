@@ -29,8 +29,9 @@ class Speak_detector:
         with torch.no_grad():
             self.model.eval()
             output = self.model(frame) # ['silent', 'utter'] * batch_size
-            _, predicted = torch.max(output, 1)
-            return predicted.item()
+            # _, predicted = torch.max(output, 1)
+            
+            return output.item()
 
 
 class SpeakerMatcher:
@@ -109,17 +110,28 @@ class SpeakerMatcher:
                 return None, None
             
         except Exception as e:
-            print(e)
-            traceback.print_exc()
+            # print(e)
+            # traceback.print_exc()
             return None, None
     
     def match_speaker(self):
-        for seg in self.segments:
-            cnt_per_video = []
-            for video in self.video_list: # video_num = speaker_num
-                cnts = 0 
-                print(video)
-                # exit()
+        """
+        video * segment * frame
+        [
+        [ [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # segment1
+          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ... ], # video1
+
+
+        [ [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ... ], # video2
+        , ...
+        ]
+        """
+
+        matrix = []
+        for video in self.video_list: # video_num = speaker_num
+            video_data = []
+            for seg in self.segments:
+                seg_data = [] 
                 cap = cv2.VideoCapture(video)
                 while cap.isOpened():
                     ret, frame = cap.read()
@@ -135,18 +147,27 @@ class SpeakerMatcher:
                         break
 
                     lip_coords, state = self.lip_detection_in_frame(frame)
-                    print(lip_coords, state)
+                    # print(lip_coords, state)
 
                     if state:
+                        print(lip_coords)
                         lip_roi = frame[lip_coords[1]:lip_coords[3], lip_coords[0]:lip_coords[2]]
                         prob = self.speak_detector(frame)
-                        if prob[0] < prob[1]:
-                            cnts += 1
-                cnt_per_video.append(cnts)
+                        # if prob[0] < prob[1]:
+                        #     cnts += 1
+                        seg_data.append(prob)
+                    else:
+                        seg_data.append(0)
+                print(f"[{seg[0]}-{seg[1]}] : {video} : {print(seg_data)}")
+
+
+
+                video_data.append(seg_data)
                 cap.release()
             
-                print(f"[{seg[0]}-{seg[1]}] : {video} : {cnt_per_video.index(max(cnt_per_video))}")
-            
+            matrix.append(video_data)
+
+
 
 '''
 pseudocode
