@@ -108,17 +108,33 @@ def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # 38101 frames
+    # parser.add_argument('--widechannel_video', type=str, 
+    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/W.mp4',
+    #                     help='widechannel_video')
+    # parser.add_argument('--speaker1_video', type=str, 
+    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4', # C
+    #                     help='speaker1_video')
+    # parser.add_argument('--speaker2_video', type=str, 
+    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4', # D
+    #                     help='speaker2_video')
+    # parser.add_argument('--speaker3_video', type=str, 
+    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/MC.mp4', # MC
+    #                     help='speaker3_video')
+
     parser.add_argument('--widechannel_video', type=str, 
-                        default='/NasData/home/ych/2024_Multicam/materials/thelive/W.mp4',
+                        default='/NasData/home/ych/Multicam_materials/thelive/W.mp4',
                         help='widechannel_video')
-    parser.add_argument('--speaker1_video', type=str, 
-                        default='/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4', # C
+    parser.add_argument('--speaker0_video', type=str, 
+                        default='/NasData/home/ych/Multicam_materials/thelive/C.mp4', # C
                         help='speaker1_video')
-    parser.add_argument('--speaker2_video', type=str, 
-                        default='/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4', # D
+    parser.add_argument('--speaker1_video', type=str, 
+                        default='/NasData/home/ych/Multicam_materials/thelive/D.mp4', # D
                         help='speaker2_video')
+    parser.add_argument('--speaker2_video', type=str, 
+                        default='/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', # MC
+                        help='speaker3_video')
     parser.add_argument('--speaker3_video', type=str, 
-                        default='/NasData/home/ych/2024_Multicam/materials/thelive/MC.mp4', # MC
+                        default='/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', # MC
                         help='speaker3_video')
     
     parser.add_argument('--start_frame', type=int, default=0)

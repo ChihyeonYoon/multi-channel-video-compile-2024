@@ -1,1 +1,4 @@
 compiled_sample/
+*.pth
+*.json
+*.pyc
