@@ -11,7 +11,7 @@ import re
 
 import scipy as sp
 
-from matching_the_speaker import SpeakerMatcher
+# from matching_the_speaker import SpeakerMatcher
 
 def frame_number_to_hhmmss(frame_number, frames_per_second=30):
     total_seconds = frame_number / frames_per_second
@@ -35,7 +35,7 @@ def get_frame_numbers(start_time, end_time, frame_rate):
     frame_numbers = list(range(start_frame, end_frame))
 
     return frame_numbers
-
+"""
 def parse_transcript(file_path):
     # with open(file_path, 'r', encoding='utf-8') as file:
     #     lines = file.readlines()
@@ -58,8 +58,9 @@ def parse_transcript(file_path):
         speaker_segments[speaker] += frame_numbers
     
     return speaker_segments
+"""
 
-def parse_transcript2(file_path):
+def parse_transcript(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         trans_list = json.load(file)
 
@@ -78,8 +79,28 @@ def parse_transcript2(file_path):
                        'start_frame': start_frame,
                        'end_frame': end_frame, 
                        'speaker': speaker}
+        
+    """
+    segments = {idx: {'start': start_time, 
+            'end': end_time, 
+            'start_frame': start_frame, 
+            'end_frame': end_frame, 
+            'speaker': speaker}
+            }
+    """
     
     return segments
+
+def parse_channel_inference(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        channel_inference = json.load(file)
+    """
+    channel_infer = {frame_number-1 (str): channel:{'prob': [slince, utterance]},
+                    max_prob_channel: str
+                    }
+    """
+    return channel_inference 
+    
 
 def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
     adjusted_channels = channels.copy()
@@ -141,43 +162,75 @@ if __name__ == '__main__':
     parser.add_argument('--end_frame', type=int, default=None)
     
     parser.add_argument('--transcript_file', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/transcription.json')
+    parser.add_argument('--channel_inference_file', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer.json')
     parser.add_argument('--final_video_path', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive.mp4',
                         help='final video path') 
     args = parser.parse_args()
 
     file_path = args.transcript_file
-    segments = parse_transcript(file_path) 
 
-    print(segments.keys())
-    # print(segments)
-    for k in segments.keys():
-        print(f'{k}: {len(segments[k])} frames')
+    segments = parse_transcript(file_path)
+    channel_infer = parse_channel_inference(args.channel_inference_file)
+    # print(channel_infer)
+    # exit()
+    """
+    segments = {idx: {'start': start_time, 
+            'end': end_time, 
+            'start_frame': start_frame, 
+            'end_frame': end_frame, 
+            'speaker': speaker}
+            }
 
-    segments2 = parse_transcript2(file_path)
-    # for k, segment in segments2.items():
-    #     print(f"{k} {segment['start']} - {segment['end']} {segment['speaker']}")
+    channel_infer = {frame_number-1 (str): channel:{'prob': [slince, utterance]},
+                    max_prob_channel: str
+                    }
+    """
 
-    spker0_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_00'), None)
-    spker1_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_01'), None)
-    spker2_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_02'), None)
-    spker3_first_segment = next((segments2[i] for i in segments2.keys() if segments2[i]['speaker'] == 'SPEAKER_03'), None)
+    for segment in segments.values():
+        start_frame = segment['start_frame']
+        end_frame = segment['end_frame']
+        print(f"{segment['start']} - {segment['end']} | {segment['speaker']}")
+        
+        channel_count = {}
+        for frame_number in range(start_frame, end_frame+1):
+            
+            if frame_number in channel_infer:
+                channel = channel_infer[frame_number]
+                print(channel)
+                if channel not in channel_count:
+                    channel_count[channel] = 1
+                else:
+                    channel_count[channel] += 1
+            # print(channel_count)
+        # most_common_channel_num = max(channel_count.values())
+        # max_value = max(channel_count.values())
+        # max_keys = [key for key, value in channel_count.items() if value == max_value]
+        # segments[idx]['channel'] = max_keys
 
-    spker0_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_00'), None) 
-    spker1_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_01'), None)
-    spker2_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_02'), None)
-    spker3_last_segment = next((segments2[i] for i in reversed(segments2.keys()) if segments2[i]['speaker'] == 'SPEAKER_03'), None)
 
-    print(f"Speaker 0: {spker0_first_segment['start']} {spker0_first_segment['end']} | {spker0_first_segment['start_frame']} - {spker0_first_segment['end_frame']}") if spker0_first_segment else None
-    print(f"Speaker 0: {spker0_last_segment['start']} {spker0_last_segment['end']} | {spker0_last_segment['start_frame']} - {spker0_last_segment['end_frame']}") if spker0_last_segment else None
+                
 
-    print(f"Speaker 1: {spker1_first_segment['start']} {spker1_first_segment['end']} | {spker1_first_segment['start_frame']} - {spker1_first_segment['end_frame']}") if spker1_first_segment else None
-    print(f"Speaker 1: {spker1_last_segment['start']} {spker1_last_segment['end']} | {spker1_last_segment['start_frame']} - {spker1_last_segment['end_frame']}") if spker1_last_segment else None
+    # spker0_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_00'), None)
+    # spker1_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_01'), None)
+    # spker2_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_02'), None)
+    # spker3_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_03'), None)
+
+    # spker0_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_00'), None) 
+    # spker1_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_01'), None)
+    # spker2_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_02'), None)
+    # spker3_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_03'), None)
+
+    # print(f"Speaker 0: {spker0_first_segment['start']} {spker0_first_segment['end']} | {spker0_first_segment['start_frame']} - {spker0_first_segment['end_frame']}") if spker0_first_segment else None
+    # print(f"Speaker 0: {spker0_last_segment['start']} {spker0_last_segment['end']} | {spker0_last_segment['start_frame']} - {spker0_last_segment['end_frame']}") if spker0_last_segment else None
+
+    # print(f"Speaker 1: {spker1_first_segment['start']} {spker1_first_segment['end']} | {spker1_first_segment['start_frame']} - {spker1_first_segment['end_frame']}") if spker1_first_segment else None
+    # print(f"Speaker 1: {spker1_last_segment['start']} {spker1_last_segment['end']} | {spker1_last_segment['start_frame']} - {spker1_last_segment['end_frame']}") if spker1_last_segment else None
     
-    print(f"Speaker 2: {spker2_first_segment['start']} {spker2_first_segment['end']} | {spker2_first_segment['start_frame']} - {spker2_first_segment['end_frame']}") if spker2_first_segment else None
-    print(f"Speaker 2: {spker2_last_segment['start']} {spker2_last_segment['end']} | {spker2_last_segment['start_frame']} - {spker2_last_segment['end_frame']}") if spker2_last_segment else None
+    # print(f"Speaker 2: {spker2_first_segment['start']} {spker2_first_segment['end']} | {spker2_first_segment['start_frame']} - {spker2_first_segment['end_frame']}") if spker2_first_segment else None
+    # print(f"Speaker 2: {spker2_last_segment['start']} {spker2_last_segment['end']} | {spker2_last_segment['start_frame']} - {spker2_last_segment['end_frame']}") if spker2_last_segment else None
     
-    print(f"Speaker 3: {spker3_first_segment['start']} {spker3_first_segment['end']} | {spker3_first_segment['start_frame']} - {spker3_first_segment['end_frame']}") if spker3_first_segment else None
-    print(f"Speaker 3: {spker3_last_segment['start']} {spker3_last_segment['end']} | {spker3_last_segment['start_frame']} - {spker3_last_segment['end_frame']}") if spker3_last_segment else None
+    # print(f"Speaker 3: {spker3_first_segment['start']} {spker3_first_segment['end']} | {spker3_first_segment['start_frame']} - {spker3_first_segment['end_frame']}") if spker3_first_segment else None
+    # print(f"Speaker 3: {spker3_last_segment['start']} {spker3_last_segment['end']} | {spker3_last_segment['start_frame']} - {spker3_last_segment['end_frame']}") if spker3_last_segment else None
 
     # first_segments = [
     #     list(map(time_to_frames, [spker0_first_segment['start'], spker0_first_segment['end']])), 
@@ -186,22 +239,21 @@ if __name__ == '__main__':
     #     list(map(time_to_frames, [spker3_first_segment['start'], spker3_first_segment['end']]))
     #     ]
 
-    first_segments = [
-        [spker0_first_segment['start_frame'], spker0_first_segment['end_frame']],
-        [spker1_first_segment['start_frame'], spker1_first_segment['end_frame']],
-        [spker2_first_segment['start_frame'], spker2_first_segment['end_frame']],
-        [spker3_first_segment['start_frame'], spker3_first_segment['end_frame']]
-    ]
+    # first_segments = [
+    #     [spker0_first_segment['start_frame'], spker0_first_segment['end_frame']],
+    #     [spker1_first_segment['start_frame'], spker1_first_segment['end_frame']],
+    #     [spker2_first_segment['start_frame'], spker2_first_segment['end_frame']],
+    #     [spker3_first_segment['start_frame'], spker3_first_segment['end_frame']]
+    # ]
 
-    print(first_segments)
-    video_list = ['/NasData/home/ych/2024_Multicam/materials/thelive/MC_left.mp4',
-                  '/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4',
-                  '/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4',
-                  '/NasData/home/ych/2024_Multicam/materials/thelive/MC_right.mp4']
+    # print(first_segments)
+    # video_list = ['/NasData/home/ych/2024_Multicam/materials/thelive/MC_left.mp4',
+    #               '/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4',
+    #               '/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4',
+    #               '/NasData/home/ych/2024_Multicam/materials/thelive/MC_right.mp4']
     
-    SpeakerMatcher = SpeakerMatcher(video_list=video_list, 
-                                                segments=first_segments)
-    SpeakerMatcher.match_speaker()
+    # SpeakerMatcher = SpeakerMatcher(video_list=video_list, segments=first_segments)
+    # SpeakerMatcher.match_speaker()
     exit()
     
     widechannel_video = cv2.VideoCapture(args.widechannel_video)

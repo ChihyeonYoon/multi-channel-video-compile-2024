@@ -34,6 +34,7 @@ class PyannoteDiarizationPipeline:
     
     def __call__(self, audio: Union[str, np.ndarray], num_speakers=2):
         segments = self.pipeline(audio, num_speakers=num_speakers)
+        print(self.pipeline)
         diarize_df = pd.DataFrame(segments.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
@@ -79,7 +80,7 @@ diarize_segments = diarize_model(audio_file, num_speakers=4)
 # result = whisperx.assign_word_speakers(diarize_segments, result)
 result = whisperx.assign_word_speakers(diarize_segments, result)
 
-with open("transcriptions.json", "w", encoding='utf8') as f:
+with open("transcriptions_.json", "w", encoding='utf8') as f:
     json.dump(result["segments"], f, ensure_ascii=False, indent=4)
 
 diarizations=[]
@@ -94,6 +95,6 @@ for i in range(len(diarize_segments)):
     }
     diarizations.append(item)
 
-with open("diarizations.json", "w", encoding='utf8') as f:
+with open("diarizations_.json", "w", encoding='utf8') as f:
     json.dump(diarizations, f, ensure_ascii=False, indent=4)
 

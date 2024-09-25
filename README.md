@@ -15,6 +15,4 @@ libcudnn8 is required to run the solution.
 pyanoote.audio == 3.3.1 is required to run the solution.
 
 
-# Compiled sample video
-[Watch the video](https://drive.google.com/file/d/1ko35PoP73wdun_YEoDvPv1gI7v5Jq4oK/view?usp=drive_link)
 

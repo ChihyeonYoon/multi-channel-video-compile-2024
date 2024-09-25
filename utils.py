@@ -112,6 +112,7 @@ def lip_detection_in_video(video_path, early_q, total_frames):
     # from mediapipe.python.solution import face_mesh as mp_face_mesh
     mp_face_mesh = mediapipe.solutions.face_mesh
     face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5)
+    os.system('clear')
     # print(face_mesh)
     
     def lip_detection_in_frame(frame):

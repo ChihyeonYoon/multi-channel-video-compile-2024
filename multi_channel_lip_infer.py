@@ -1,7 +1,9 @@
 import json
 import argparse
+import os
 import multiprocessing as mp
 import cv2
+import time
 from dataclasses import dataclass
 from utils import lip_detection_in_video, infer_lip_state
 
@@ -84,6 +86,7 @@ if __name__ == "__main__":
     # sorted_segments_by_duration = sorted(segments.items(), 
     #                                      key=lambda x: x[1]['end'] - x[1]['start'], reverse=True)
 
+    start_run_t = time.time()
     
     tmp_cap = cv2.VideoCapture(args.widechannel_video)
     total_frames = int(tmp_cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -92,6 +95,7 @@ if __name__ == "__main__":
 
     speaker_names = ['C', 'D', 'MC_left', 'MC_right']
     spkr_video_paths = [args.speaker0_video, args.speaker1_video, args.speaker2_video, args.speaker3_video]
+    speaker_names = [s.split('/')[-1] for s in spkr_video_paths]
 
     speakers = [
         Speaker(
@@ -107,6 +111,7 @@ if __name__ == "__main__":
         speaker.producer = mp.Process(target=lip_detection_in_video, 
                                     args=(speaker.video_path, speaker.queue, total_frames))
         speaker.producer.start()
+        os.system('clear')
         print(f"{speaker.name} producer started")
 
     for speaker in speakers:
@@ -141,5 +146,7 @@ if __name__ == "__main__":
         frame_result["max_prob_channel"] = find_max_prob_channel(frame_result)
         result_dict[int(i)] = frame_result
 
-    with open("./multi_channel_lip_infer.json", 'w') as f:
+    with open("./multi_channel_lip_infer_.json", 'w') as f:
         json.dump(result_dict, f, indent=4)
+
+    print(f"Total time taken: {time.time() - start_run_t:.2f} seconds")
