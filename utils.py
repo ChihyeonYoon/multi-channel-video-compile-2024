@@ -157,8 +157,10 @@ def lip_detection_in_video(video_path, early_q, total_frames):
                 if all(x > 0 for x in lip_coords):
                     return lip_coords, state # coords: x1, y1, x2, y2, state: True or False
                 else:
+                    print(f"lip_coords: {lip_coords}")
                     return None, None
             else:
+                print("No face landmarks")
                 return None, None # coords: None, state: None
 
         except Exception as e:
@@ -246,7 +248,8 @@ def infer_lip_state(early_q, result_list, model_name, weights):
                     break
                 
                 
-                elif item[1] is not None: # lip_roi is not None
+                elif isinstance(item[1], list): # lip_roi is not None
+                # elif item[1] is not None: # lip_roi is not None
                     """
                     gather 30 frames, then process if full
                     when processing, change the items to inferenced value of each index in result_list

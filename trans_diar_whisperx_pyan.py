@@ -19,14 +19,14 @@ class PyannoteDiarizationPipeline:
         self.pipeline = SpeakerDiarization(segmentation=self.model)
         HYPER_PARAMETERS = {
             'segmentation': {
-                'min_duration_off': 0.5817029604921046,
+                'min_duration_off': 0.5
                 # 'threshold': 0.4442333667381752
                 },
             'clustering': 
             {
                 'method': 'centroid',
                 'min_cluster_size': 15,
-                'threshold': 0.7153814381597874
+                'threshold': 0.5
                 }
         }
         self.pipeline.instantiate(HYPER_PARAMETERS)
@@ -70,11 +70,11 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device, re
 
 # 3. Assign speaker labels
 # diarize_model = whisperx.DiarizationPipeline(use_auth_token="your access token", device=device)
-diarize_model = PyannoteDiarizationPipeline()
+diarize_pipeline = PyannoteDiarizationPipeline()
 
 # add min/max number of speakers if known
 # diarize_segments = diarize_model(audio, min_speakers=4, max_speakers=4)
-diarize_segments = diarize_model(audio_file, num_speakers=4)
+diarize_segments = diarize_pipeline(audio_file, num_speakers=4)
 # diarize_model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
 
 # result = whisperx.assign_word_speakers(diarize_segments, result)

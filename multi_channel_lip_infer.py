@@ -39,7 +39,7 @@ def find_max_prob_channel(frame_result):
     
     for key, value in frame_result.items():
         # prob이 None이 아닌지 확인하고, prob 리스트의 마지막 값 확인
-        prob = value.get("prob")
+        prob = value
         if prob != "None":
             prob_last = prob[-1]  # prob[-1]을 가져옴
             if prob_last > max_prob:
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     speaker_names = ['C', 'D', 'MC_left', 'MC_right']
     spkr_video_paths = [args.speaker0_video, args.speaker1_video, args.speaker2_video, args.speaker3_video]
-    speaker_names = [s.split('/')[-1] for s in spkr_video_paths]
+    speaker_names = [s.split('/')[-1].replace(".mp4", "") for s in spkr_video_paths]
 
     speakers = [
         Speaker(
@@ -142,11 +142,11 @@ if __name__ == "__main__":
             else:
                 state, prob = "None", "None"
 
-            frame_result[speaker.name] = {'prob': prob}
+            frame_result[speaker.name] = prob
         frame_result["max_prob_channel"] = find_max_prob_channel(frame_result)
         result_dict[int(i)] = frame_result
 
-    with open("./multi_channel_lip_infer_.json", 'w') as f:
+    with open("./multi_channel_lip_infer_exp3.json", 'w') as f:
         json.dump(result_dict, f, indent=4)
 
     print(f"Total time taken: {time.time() - start_run_t:.2f} seconds")

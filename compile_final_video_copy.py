@@ -126,6 +126,64 @@ def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
 
     return adjusted_channels
 
+def match_speaker_to_unique_channel(channel_infer_file, diarization_file, fps=30):
+    # JSON 파일 로드
+    with open(channel_infer_file, 'r') as f:
+        channel_infer = json.load(f)
+
+    with open(diarization_file, 'r') as f:
+        diarization = json.load(f)
+
+    # 프레임 변환 함수
+    def time_to_frame(time_in_seconds, fps):
+        return int(time_in_seconds * fps)
+
+    # 각 화자별로 채널 누적 확률을 저장할 딕셔너리
+    speaker_channel_probabilities = {}
+
+    # 다이어리제이션의 각 구간을 화자별로 채널 매칭
+    for segment in diarization:
+        speaker = segment['speaker']
+        start_time = segment['start']
+        end_time = segment['end']
+
+        # 시간 구간을 프레임으로 변환
+        start_frame = time_to_frame(start_time, fps)
+        end_frame = time_to_frame(end_time, fps)
+
+        # 화자가 새로 등장하면 초기화
+        if speaker not in speaker_channel_probabilities:
+            speaker_channel_probabilities[speaker] = {}
+
+        # 해당 시간 구간의 프레임에서 채널 확률 확인
+        for frame in range(start_frame, end_frame + 1):
+            frame_str = str(frame)  # JSON의 키가 문자열로 되어 있음
+            if frame_str in channel_infer:
+                for channel, prob in channel_infer[frame_str].items():
+                    if channel == 'max_prob_channel':
+                        continue  # max_prob_channel은 제외
+                    if prob is not None:
+                        if channel not in speaker_channel_probabilities[speaker]:
+                            speaker_channel_probabilities[speaker][channel] = 0
+                        speaker_channel_probabilities[speaker][channel] += prob[-1]  # 첫 번째 확률 값만 사용
+
+    # 채널 할당을 위한 딕셔너리
+    speaker_best_channels = {}
+    used_channels = set()  # 이미 사용된 채널을 저장하는 집합
+
+    # 각 화자별로 가장 확률이 높은 채널 선택 (중복 방지)
+    for speaker, channels in speaker_channel_probabilities.items():
+        sorted_channels = sorted(channels.items(), key=lambda x: x[1], reverse=True)  # 확률이 높은 순으로 정렬
+        for channel, _ in sorted_channels:
+            if channel not in used_channels:
+                speaker_best_channels[speaker] = channel
+                used_channels.add(channel)
+                break  # 첫 번째로 가능한 채널을 할당하고 종료
+
+    # 결과를 딕셔너리로 반환
+    return speaker_best_channels
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # 38101 frames
@@ -185,28 +243,14 @@ if __name__ == '__main__':
                     max_prob_channel: str
                     }
     """
-
-    for segment in segments.values():
-        start_frame = segment['start_frame']
-        end_frame = segment['end_frame']
-        print(f"{segment['start']} - {segment['end']} | {segment['speaker']}")
-        
-        channel_count = {}
-        for frame_number in range(start_frame, end_frame+1):
-            
-            if frame_number in channel_infer:
-                channel = channel_infer[frame_number]
-                print(channel)
-                if channel not in channel_count:
-                    channel_count[channel] = 1
-                else:
-                    channel_count[channel] += 1
-            # print(channel_count)
-        # most_common_channel_num = max(channel_count.values())
-        # max_value = max(channel_count.values())
-        # max_keys = [key for key, value in channel_count.items() if value == max_value]
-        # segments[idx]['channel'] = max_keys
-
+    best_channels = match_speaker_to_unique_channel(channel_infer_file="/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp1.json", 
+                                 diarization_file= "/NasData/home/ych/multi-channel-video-compile-2024/transcription.json", 
+                                 fps=30)
+    print(best_channels)
+    best_channels2 = match_speaker_to_unique_channel(channel_infer_file="/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp2.json",
+                                    diarization_file= "/NasData/home/ych/multi-channel-video-compile-2024/transcription.json",
+                                    fps=30)
+    print(best_channels2)
 
                 
 
