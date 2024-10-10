@@ -1,13 +1,14 @@
 import json
-from tracemalloc import start
 import cv2
 import time
 import os
-from more_itertools import first
 from moviepy.editor import AudioFileClip, VideoFileClip
-from collections import Counter
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 import argparse
+from pprint import pprint
 import re
+
 
 import scipy as sp
 
@@ -64,15 +65,21 @@ def parse_transcript(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         trans_list = json.load(file)
 
+    # print(trans_list)
+
     segments = {}
 
     for i, item in enumerate(trans_list):
+        try:
+            speaker = str(item['speaker'])
+        except:
+            speaker = "UNKNOWN"
+
         start_time = float(item['start'])
         end_time = float(item['end'])
         start_frame = time_to_frames(start_time)
         end_frame = time_to_frames(end_time)
 
-        speaker = str(item['speaker'])
 
         segments[i] = {'start': start_time, 
                        'end': end_time,
@@ -126,63 +133,83 @@ def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
 
     return adjusted_channels
 
-def match_speaker_to_unique_channel(channel_infer_file, diarization_file, fps=30):
-    # JSON 파일 로드
-    with open(channel_infer_file, 'r') as f:
-        channel_infer = json.load(f)
+def load_data(multi_channel_file, transcription_file):
+    with open(multi_channel_file) as f:
+        multi_channel_data = json.load(f)
 
-    with open(diarization_file, 'r') as f:
-        diarization = json.load(f)
+    with open(transcription_file) as f:
+        transcription_data = json.load(f)
+    
+    return multi_channel_data, transcription_data
 
-    # 프레임 변환 함수
-    def time_to_frame(time_in_seconds, fps):
-        return int(time_in_seconds * fps)
+def map_speaker_to_max_prob_channel(multi_channel_data, transcription_data, fps=30):
+    # speaker 별로 max_prob_channel을 저장할 딕셔너리 생성
+    speaker_channel_map = defaultdict(list)
+    last_known_channel = None
 
-    # 각 화자별로 채널 누적 확률을 저장할 딕셔너리
-    speaker_channel_probabilities = {}
+    # transcription_data를 순회하며 segment에 해당하는 speaker와 max_prob_channel을 매핑
+    for segment in transcription_data:
+        if isinstance(segment, dict):
+            speaker = segment.get("speaker")
+            if not speaker and last_known_channel:  # speaker가 없을 경우 이전 채널 사용
+                speaker = last_known_channel
+            elif speaker:
+                last_known_channel = speaker
 
-    # 다이어리제이션의 각 구간을 화자별로 채널 매칭
-    for segment in diarization:
-        speaker = segment['speaker']
-        start_time = segment['start']
-        end_time = segment['end']
+            start_frame = int(segment.get("start", 0) * fps)  # 초를 프레임으로 변환, 기본값 0
+            end_frame = int(segment.get("end", 0) * fps)  # 초를 프레임으로 변환, 기본값 0
+            
+            # start_frame에서 end_frame까지의 max_prob_channel을 수집
+            for frame in range(start_frame, end_frame + 1):
+                if str(frame) in multi_channel_data:
+                    max_prob_channel = multi_channel_data[str(frame)]
+                    speaker_channel_map[speaker].append(max_prob_channel)
 
-        # 시간 구간을 프레임으로 변환
-        start_frame = time_to_frame(start_time, fps)
-        end_frame = time_to_frame(end_time, fps)
+    # speaker별 max_prob_channel의 최빈값을 계산하여 매칭
+    speaker_max_prob_mapping = {}
+    for speaker, channels in speaker_channel_map.items():
+        if channels:
+            most_common_channel = Counter(channels).most_common(1)[0][0]
+            speaker_max_prob_mapping[speaker] = most_common_channel
+        else:
+            speaker_max_prob_mapping[speaker] = "No channel data"
 
-        # 화자가 새로 등장하면 초기화
-        if speaker not in speaker_channel_probabilities:
-            speaker_channel_probabilities[speaker] = {}
+    return speaker_max_prob_mapping
 
-        # 해당 시간 구간의 프레임에서 채널 확률 확인
-        for frame in range(start_frame, end_frame + 1):
-            frame_str = str(frame)  # JSON의 키가 문자열로 되어 있음
-            if frame_str in channel_infer:
-                for channel, prob in channel_infer[frame_str].items():
-                    if channel == 'max_prob_channel':
-                        continue  # max_prob_channel은 제외
-                    if prob is not None:
-                        if channel not in speaker_channel_probabilities[speaker]:
-                            speaker_channel_probabilities[speaker][channel] = 0
-                        speaker_channel_probabilities[speaker][channel] += prob[-1]  # 첫 번째 확률 값만 사용
+def map_frames_to_speakers(transcription_data, fps=30):
+    # 프레임 번호를 리스트의 인덱스로 간주하고, 해당 프레임의 speaker를 저장하는 리스트 생성
+    frame_speaker_list = []
+    last_known_speaker = "UNKNOWN_SPEAKER"
 
-    # 채널 할당을 위한 딕셔너리
-    speaker_best_channels = {}
-    used_channels = set()  # 이미 사용된 채널을 저장하는 집합
+    for segment in transcription_data:
+        if isinstance(segment, dict):
+            speaker = segment.get("speaker", last_known_speaker)
+            if speaker != "UNKNOWN_SPEAKER":
+                last_known_speaker = speaker
 
-    # 각 화자별로 가장 확률이 높은 채널 선택 (중복 방지)
-    for speaker, channels in speaker_channel_probabilities.items():
-        sorted_channels = sorted(channels.items(), key=lambda x: x[1], reverse=True)  # 확률이 높은 순으로 정렬
-        for channel, _ in sorted_channels:
-            if channel not in used_channels:
-                speaker_best_channels[speaker] = channel
-                used_channels.add(channel)
-                break  # 첫 번째로 가능한 채널을 할당하고 종료
+            start_frame = int(segment.get("start", 0) * fps)  # 초를 프레임으로 변환, 기본값 0
+            end_frame = int(segment.get("end", 0) * fps)  # 초를 프레임으로 변환, 기본값 0
 
-    # 결과를 딕셔너리로 반환
-    return speaker_best_channels
+            # 프레임 번호에 해당하는 speaker 저장
+            while len(frame_speaker_list) <= end_frame:
+                frame_speaker_list.append("UNKNOWN_SPEAKER")
 
+            for frame in range(start_frame, end_frame + 1):
+                frame_speaker_list[frame] = speaker
+
+    return frame_speaker_list
+
+def reverse_dict(input_dict):
+    """
+    Given a dictionary, return a new dictionary with keys and values swapped.
+    
+    Args:
+    input_dict (dict): The dictionary to reverse.
+    
+    Returns:
+    dict: A new dictionary with keys and values swapped.
+    """
+    return {value: key for key, value in input_dict.items()}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -203,32 +230,33 @@ if __name__ == '__main__':
     parser.add_argument('--widechannel_video', type=str, 
                         default='/NasData/home/ych/Multicam_materials/thelive/W.mp4',
                         help='widechannel_video')
-    parser.add_argument('--speaker0_video', type=str, 
-                        default='/NasData/home/ych/Multicam_materials/thelive/C.mp4', # C
-                        help='speaker1_video')
-    parser.add_argument('--speaker1_video', type=str, 
-                        default='/NasData/home/ych/Multicam_materials/thelive/D.mp4', # D
-                        help='speaker2_video')
-    parser.add_argument('--speaker2_video', type=str, 
-                        default='/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', # MC
-                        help='speaker3_video')
-    parser.add_argument('--speaker3_video', type=str, 
-                        default='/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', # MC
-                        help='speaker3_video')
+    parser.add_argument('--speaker_videos', type=str, nargs='+',
+                    default=[
+                        '/NasData/home/ych/Multicam_materials/thelive/C.mp4', 
+                        '/NasData/home/ych/Multicam_materials/thelive/D.mp4', 
+                        '/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', 
+                        '/NasData/home/ych/Multicam_materials/thelive/MC_right.mp4'
+                    ],
+                    help='List of speaker videos')
     
     parser.add_argument('--start_frame', type=int, default=0)
     parser.add_argument('--end_frame', type=int, default=None)
     
-    parser.add_argument('--transcript_file', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/transcription.json')
-    parser.add_argument('--channel_inference_file', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer.json')
-    parser.add_argument('--final_video_path', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive.mp4',
+    parser.add_argument('--transcript_file', type=str, 
+                        default='/NasData/home/ych/multi-channel-video-compile-2024/transcriptions_.json')
+    parser.add_argument('--channel_inference_file', type=str, 
+                        default='/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp3.json')
+    
+    parser.add_argument('--final_video_path', type=str, 
+                        default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive.mp4',
                         help='final video path') 
     args = parser.parse_args()
 
-    file_path = args.transcript_file
+  
 
-    segments = parse_transcript(file_path)
-    channel_infer = parse_channel_inference(args.channel_inference_file)
+    # segments = parse_transcript(args.transcript_file)
+    # channel_infer = parse_channel_inference(args.channel_inference_file)
+    # print(segments)
     # print(channel_infer)
     # exit()
     """
@@ -243,15 +271,12 @@ if __name__ == '__main__':
                     max_prob_channel: str
                     }
     """
-    best_channels = match_speaker_to_unique_channel(channel_infer_file="/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp1.json", 
-                                 diarization_file= "/NasData/home/ych/multi-channel-video-compile-2024/transcription.json", 
-                                 fps=30)
-    print(best_channels)
-    best_channels2 = match_speaker_to_unique_channel(channel_infer_file="/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp2.json",
-                                    diarization_file= "/NasData/home/ych/multi-channel-video-compile-2024/transcription.json",
-                                    fps=30)
-    print(best_channels2)
-
+   
+    multi_channel_data, transcription_data = load_data(args.channel_inference_file, args.transcript_file)
+    speaker_max_prob_mapping = map_speaker_to_max_prob_channel(multi_channel_data, transcription_data)
+    print(speaker_max_prob_mapping)
+    speaker_max_prob_mapping = reverse_dict(speaker_max_prob_mapping)
+    print(speaker_max_prob_mapping)
                 
 
     # spker0_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_00'), None)
@@ -298,40 +323,42 @@ if __name__ == '__main__':
     
     # SpeakerMatcher = SpeakerMatcher(video_list=video_list, segments=first_segments)
     # SpeakerMatcher.match_speaker()
-    exit()
+    # exit()
     
     widechannel_video = cv2.VideoCapture(args.widechannel_video)
-    speaker1_video = cv2.VideoCapture(args.speaker2_video) # C
-    speaker2_video = cv2.VideoCapture(args.speaker1_video) # D
-    speaker3_video = cv2.VideoCapture(args.speaker3_video) # MC
+    spkr_video_paths = args.speaker_videos
     audio = AudioFileClip(args.widechannel_video)
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     final_video = cv2.VideoWriter(args.final_video_path, fourcc, 30, (1920, 1080))
 
     start_frame = args.start_frame
-    end_frame = args.end_frame if args.end_frame else min(int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT)),
-                                                              int(speaker1_video.get(cv2.CAP_PROP_FRAME_COUNT)),  
-                                                              int(speaker2_video.get(cv2.CAP_PROP_FRAME_COUNT)),
-                                                              int(speaker3_video.get(cv2.CAP_PROP_FRAME_COUNT)))
+    end_frame = args.end_frame if args.end_frame else int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
 
 
-    selected_channels = [0 for _ in range(end_frame)]
-    for i, v in enumerate(selected_channels):
-        if i in segments['SPEAKER_00'] or i in segments['SPEAKER_03']:
-            selected_channels[i] = '3'
-        elif i in segments['SPEAKER_02']:
-            selected_channels[i] = '1'
-        elif i in segments['SPEAKER_01']:
-            selected_channels[i] = '2'
-        else:
-            selected_channels[i] = 'widechannel'
-    
+    for i, spkr_video_path in enumerate(spkr_video_paths):
+        locals()[f'speaker{i+1}_video'] = cv2.VideoCapture(spkr_video_path)
+        
+
+    selected_channels = map_frames_to_speakers(transcription_data)
     selected_channels = adjust_abnormal_channels(selected_channels)
 
-    
+    @dataclass
+    class origin_video:
+        video_path: str
+        video: cv2.VideoCapture
+        speaker: str
 
-    while(widechannel_video.isOpened() and speaker1_video.isOpened() and speaker2_video.isOpened() and speaker3_video.isOpened()):
+    origin_videos = [
+        origin_video(video_path=p, 
+                     video=cv2.VideoCapture(p),
+                     speaker=speaker_max_prob_mapping[p.split('/')[-1]]
+                     ) for p in spkr_video_paths
+    ]
+    pprint(origin_videos)      
+    exit()
+
+    while all(v.video.isOpened() for v in origin_videos) and widechannel_video.isOpened():
         retw, frame_w = widechannel_video.read()
         ret1, frame_1 = speaker1_video.read() # C
         ret2, frame_2 = speaker2_video.read() # D
@@ -356,9 +383,8 @@ if __name__ == '__main__':
 
         if current_frame >= end_frame:
             widechannel_video.release()
-            speaker1_video.release()
-            speaker2_video.release()
-            speaker3_video.release()
+            for v in origin_videos:
+                v.video.release()
             break
     
     final_video.release()

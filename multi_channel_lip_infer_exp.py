@@ -33,16 +33,22 @@ def producer(queue, video_path, total_frame):
         if not ret:
             break
         else:
-            coords = mediapipe_inference(frame, face_detection)
-            if coords is not None:
-                face_roi = frame[coords[2]:coords[3], coords[0]:coords[1]]
-                face_roi = cv2.resize(face_roi, (224, 224))
-                face_roi = transform(face_roi).cpu().numpy()  # Convert to NumPy array before putting it in the queue
-                queue.put([current_frame, face_roi])
-                last_roi = face_roi
-            else:
-                queue.put([current_frame, last_roi])
-        
+                coords = mediapipe_inference(frame, face_detection)
+                if coords is not None:
+                    face_roi = frame[coords[2]:coords[3], coords[0]:coords[1]]
+                    try:
+                        face_roi = cv2.resize(face_roi, (224, 224))
+                    except Exception as e:
+                        print(f"Error in frame {current_frame}: {e}")
+                        queue.put([current_frame, last_roi])
+                        continue
+
+                    face_roi = transform(face_roi).cpu().numpy()  # Convert to NumPy array before putting it in the queue
+                    queue.put([current_frame, face_roi])
+                    last_roi = face_roi
+                else:
+                    queue.put([current_frame, last_roi])
+            
         if current_frame >= total_frame:
             break
 
@@ -268,8 +274,11 @@ if __name__ == "__main__":
                 frame_result[speaker.name] = entry.tolist()  # 텐서를 리스트로 변환
             else:
                 frame_result[speaker.name] = entry  # None 또는 다른 타입의 경우 그대로 유지
-        frame_result["max_prob_channel"] = find_max_prob_channel(frame_result)
-        result_dict[int(i)] = frame_result
+        # frame_result["max_prob_channel"] = find_max_prob_channel(frame_result)
+        max_prob_channel =find_max_prob_channel(frame_result)
+        
+        # result_dict[int(i)] = frame_result
+        result_dict[str(i)] = max_prob_channel
 
     # max_prob_channel adjusting for every 30 frames with most common channel
     
@@ -287,7 +296,7 @@ if __name__ == "__main__":
 
 
     # JSON 파일로 저장
-    with open("./multi_channel_lip_infer_exp1.json", 'w') as f:
+    with open("./multi_channel_lip_infer_exp3.json", 'w') as f:
         json.dump(result_dict, f, indent=4)
 
     # with open("./result_dict_with_common_channel.json", 'w') as f:
