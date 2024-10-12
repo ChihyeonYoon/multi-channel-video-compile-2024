@@ -15,4 +15,9 @@ libcudnn8 is required to run the solution.
 pyanoote.audio == 3.3.1 is required to run the solution.
 
 
+# Visualize the result
+
+The following images are the visualization of the speaker diarization result.
+![Image description](./compiled_sample/speaker_segments.png)
+![Image description](./compiled_sample/speaker_segments2.png)
 
