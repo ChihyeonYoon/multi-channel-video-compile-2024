@@ -1,4 +1,6 @@
-compiled_sample/
 *.pth
 *.json
 *.pyc
+*.mp3
+*.mp4
+*.wav

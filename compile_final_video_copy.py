@@ -2,17 +2,15 @@ import json
 import cv2
 import time
 import os
-from moviepy.editor import AudioFileClip, VideoFileClip
+from moviepy.editor import VideoFileClip, AudioFileClip
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
+import numpy as np
 import argparse
 from pprint import pprint
-import re
-
-
-import scipy as sp
-
-# from matching_the_speaker import SpeakerMatcher
+import ffmpeg
+import subprocess
 
 def frame_number_to_hhmmss(frame_number, frames_per_second=30):
     total_seconds = frame_number / frames_per_second
@@ -109,29 +107,38 @@ def parse_channel_inference(file_path):
     return channel_inference 
     
 
-def adjust_abnormal_channels(channels, abnormal_value="widechannel", fps=30):
-    adjusted_channels = channels.copy()
-    length = len(channels)
-    i = 0
+def smooth_short_segments(speaker_data, threshold=15):
 
-    while i < length:
-        if channels[i] == abnormal_value:
-            start = i
-            while i < length and channels[i] == abnormal_value:
-                i += 1
-            end = i
+    # 배열로 변환
+    speaker_data = np.array(speaker_data)
+    n = len(speaker_data)
 
-            if end - start < fps:
-                previous_value = channels[start - 1] if start > 0 else None
-                next_value = channels[end] if end < length else None
-                replacement_value = previous_value if previous_value is not None else next_value
+    # 현재 구간의 시작 인덱스를 저장하는 변수
+    segment_start = 0
 
-                for j in range(start, end):
-                    adjusted_channels[j] = replacement_value
-        else:
-            i += 1
+    # 전체 데이터를 순회하며 구간 나누기
+    for i in range(1, n + 1):
+        # 끝에 도달했거나 화자가 바뀌는 경우 현재 구간을 평가합니다.
+        if i == n or speaker_data[i] != speaker_data[segment_start]:
+            segment_length = i - segment_start
 
-    return adjusted_channels
+            # 현재 구간의 길이가 threshold보다 작다면 앞뒤 화자 값으로 채우기
+            if segment_length <= threshold:
+                left_speaker = speaker_data[segment_start - 1] if segment_start > 0 else None
+                right_speaker = speaker_data[i] if i < n else None
+
+                # 가능한 경우 앞쪽 화자 값으로 채우기, 아니면 뒤쪽 화자 값 사용
+                if left_speaker is not None and left_speaker == right_speaker:
+                    speaker_data[segment_start:i] = left_speaker
+                elif left_speaker is not None:
+                    speaker_data[segment_start:i] = left_speaker
+                elif right_speaker is not None:
+                    speaker_data[segment_start:i] = right_speaker
+
+            # 다음 구간의 시작 인덱스를 업데이트합니다.
+            segment_start = i
+
+    return speaker_data.tolist()
 
 def load_data(multi_channel_file, transcription_file):
     with open(multi_channel_file) as f:
@@ -141,6 +148,88 @@ def load_data(multi_channel_file, transcription_file):
         transcription_data = json.load(f)
     
     return multi_channel_data, transcription_data
+
+def plot_segments(speaker_data, fps=30, filename='speaker_segments.png'):
+    # 각 구간의 길이와 화자 정보 추출
+    segments = []
+    start = 0
+    current_speaker = speaker_data[0]
+
+    for i in range(1, len(speaker_data)):
+        if speaker_data[i] != current_speaker:
+            segments.append((current_speaker, start, i - start))
+            start = i
+            current_speaker = speaker_data[i]
+    segments.append((current_speaker, start, len(speaker_data) - start))
+
+    # 색상 코드 정의
+    color_palette = {
+        "SPEAKER_00": "#264653",
+        "SPEAKER_01": "#2A9D8F",
+        "SPEAKER_02": "#E9C46A",
+        "SPEAKER_03": "#F4A261",
+        "UNKNOWN_SPEAKER": "#E76F51"
+    }
+
+    # 그래프 그리기
+    fig, ax = plt.subplots(figsize=(10, 6))
+    y_labels = []
+    y_positions = {}
+
+    for idx, (speaker, start, length) in enumerate(segments):
+        if speaker not in y_positions:
+            y_positions[speaker] = len(y_labels)
+            y_labels.append(speaker)
+        color = color_palette.get(speaker, "#000000")  # 지정되지 않은 화자의 경우 기본 색상 검정색
+        ax.barh(y_positions[speaker], length / fps, left=start / fps, color=color)
+
+    sorted_y_labels = y_labels
+    ax.set_yticks(range(len(sorted_y_labels)))
+    ax.set_yticklabels(sorted_y_labels)  # y축 성분 유지
+    ax.set_xlabel('Time (seconds)')
+    ax.set_title('Speaker Segments Over Time')
+    plt.tight_layout()
+    plt.savefig(filename)
+
+# 두번째 함수
+def plot_segments2(speaker_data, fps=30, filename='speaker_segments2.png'):
+    # 각 구간의 길이와 화자 정보 추출
+    segments = []
+    start = 0
+    current_speaker = speaker_data[0]
+
+    for i in range(1, len(speaker_data)):
+        if speaker_data[i] != current_speaker:
+            segments.append((current_speaker, start, i - start))
+            start = i
+            current_speaker = speaker_data[i]
+    segments.append((current_speaker, start, len(speaker_data) - start))
+
+    # 색상 코드 정의
+    color_palette = {
+        "SPEAKER_00": "#264653",
+        "SPEAKER_01": "#2A9D8F",
+        "SPEAKER_02": "#E9C46A",
+        "SPEAKER_03": "#F4A261",
+        "UNKNOWN_SPEAKER": "#E76F51"
+    }
+
+    # 그래프 그리기
+    fig, ax = plt.subplots(figsize=(10, 3))  # 세로 길이 축소
+
+    for idx, (speaker, start, length) in enumerate(segments):
+        color = color_palette.get(speaker, "#000000")  # 지정되지 않은 화자의 경우 기본 색상 검정색
+        ax.barh(0, length / fps, left=start / fps, color=color, label=speaker if speaker not in ax.get_legend_handles_labels()[1] else "")
+
+    ax.set_yticks([0])
+    ax.set_yticklabels(['Speakers'])
+    ax.set_xlabel('Time (seconds)')
+    ax.set_title('Speaker Segments Over Time')
+    ax.set_ylim(-1, 1)  # 상하 여백 추가
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, title='Speakers', loc='upper right', ncol=1)  # 범례를 화자별 색상에 맞춰 일관되게 유지
+    plt.tight_layout()
+    plt.savefig(filename)
 
 def map_speaker_to_max_prob_channel(multi_channel_data, transcription_data, fps=30):
     # speaker 별로 max_prob_channel을 저장할 딕셔너리 생성
@@ -212,21 +301,8 @@ def reverse_dict(input_dict):
     return {value: key for key, value in input_dict.items()}
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
     # 38101 frames
-    # parser.add_argument('--widechannel_video', type=str, 
-    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/W.mp4',
-    #                     help='widechannel_video')
-    # parser.add_argument('--speaker1_video', type=str, 
-    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4', # C
-    #                     help='speaker1_video')
-    # parser.add_argument('--speaker2_video', type=str, 
-    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4', # D
-    #                     help='speaker2_video')
-    # parser.add_argument('--speaker3_video', type=str, 
-    #                     default='/NasData/home/ych/2024_Multicam/materials/thelive/MC.mp4', # MC
-    #                     help='speaker3_video')
-
+    parser = argparse.ArgumentParser()
     parser.add_argument('--widechannel_video', type=str, 
                         default='/NasData/home/ych/Multicam_materials/thelive/W.mp4',
                         help='widechannel_video')
@@ -238,6 +314,8 @@ if __name__ == '__main__':
                         '/NasData/home/ych/Multicam_materials/thelive/MC_right.mp4'
                     ],
                     help='List of speaker videos')
+    parser.add_argument('--audio_path', type=str,
+                        default='/NasData/home/ych/Multicam_materials/thelive/audio.wav',)
     
     parser.add_argument('--start_frame', type=int, default=0)
     parser.add_argument('--end_frame', type=int, default=None)
@@ -248,15 +326,15 @@ if __name__ == '__main__':
                         default='/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp3.json')
     
     parser.add_argument('--final_video_path', type=str, 
-                        default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive.mp4',
+                        default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive_241012(5).mp4',
                         help='final video path') 
     args = parser.parse_args()
 
-  
+    run_start = time.time()
 
     # segments = parse_transcript(args.transcript_file)
-    # channel_infer = parse_channel_inference(args.channel_inference_file)
     # print(segments)
+    # channel_infer = parse_channel_inference(args.channel_inference_file)
     # print(channel_infer)
     # exit()
     """
@@ -274,74 +352,36 @@ if __name__ == '__main__':
    
     multi_channel_data, transcription_data = load_data(args.channel_inference_file, args.transcript_file)
     speaker_max_prob_mapping = map_speaker_to_max_prob_channel(multi_channel_data, transcription_data)
-    print(speaker_max_prob_mapping)
+    # print(speaker_max_prob_mapping)
     speaker_max_prob_mapping = reverse_dict(speaker_max_prob_mapping)
     print(speaker_max_prob_mapping)
                 
-
-    # spker0_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_00'), None)
-    # spker1_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_01'), None)
-    # spker2_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_02'), None)
-    # spker3_first_segment = next((segments[i] for i in segments.keys() if segments[i]['speaker'] == 'SPEAKER_03'), None)
-
-    # spker0_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_00'), None) 
-    # spker1_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_01'), None)
-    # spker2_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_02'), None)
-    # spker3_last_segment = next((segments[i] for i in reversed(segments.keys()) if segments[i]['speaker'] == 'SPEAKER_03'), None)
-
-    # print(f"Speaker 0: {spker0_first_segment['start']} {spker0_first_segment['end']} | {spker0_first_segment['start_frame']} - {spker0_first_segment['end_frame']}") if spker0_first_segment else None
-    # print(f"Speaker 0: {spker0_last_segment['start']} {spker0_last_segment['end']} | {spker0_last_segment['start_frame']} - {spker0_last_segment['end_frame']}") if spker0_last_segment else None
-
-    # print(f"Speaker 1: {spker1_first_segment['start']} {spker1_first_segment['end']} | {spker1_first_segment['start_frame']} - {spker1_first_segment['end_frame']}") if spker1_first_segment else None
-    # print(f"Speaker 1: {spker1_last_segment['start']} {spker1_last_segment['end']} | {spker1_last_segment['start_frame']} - {spker1_last_segment['end_frame']}") if spker1_last_segment else None
-    
-    # print(f"Speaker 2: {spker2_first_segment['start']} {spker2_first_segment['end']} | {spker2_first_segment['start_frame']} - {spker2_first_segment['end_frame']}") if spker2_first_segment else None
-    # print(f"Speaker 2: {spker2_last_segment['start']} {spker2_last_segment['end']} | {spker2_last_segment['start_frame']} - {spker2_last_segment['end_frame']}") if spker2_last_segment else None
-    
-    # print(f"Speaker 3: {spker3_first_segment['start']} {spker3_first_segment['end']} | {spker3_first_segment['start_frame']} - {spker3_first_segment['end_frame']}") if spker3_first_segment else None
-    # print(f"Speaker 3: {spker3_last_segment['start']} {spker3_last_segment['end']} | {spker3_last_segment['start_frame']} - {spker3_last_segment['end_frame']}") if spker3_last_segment else None
-
-    # first_segments = [
-    #     list(map(time_to_frames, [spker0_first_segment['start'], spker0_first_segment['end']])), 
-    #     list(map(time_to_frames, [spker1_first_segment['start'], spker1_first_segment['end']])), 
-    #     list(map(time_to_frames, [spker2_first_segment['start'], spker2_first_segment['end']])),
-    #     list(map(time_to_frames, [spker3_first_segment['start'], spker3_first_segment['end']]))
-    #     ]
-
-    # first_segments = [
-    #     [spker0_first_segment['start_frame'], spker0_first_segment['end_frame']],
-    #     [spker1_first_segment['start_frame'], spker1_first_segment['end_frame']],
-    #     [spker2_first_segment['start_frame'], spker2_first_segment['end_frame']],
-    #     [spker3_first_segment['start_frame'], spker3_first_segment['end_frame']]
-    # ]
-
-    # print(first_segments)
-    # video_list = ['/NasData/home/ych/2024_Multicam/materials/thelive/MC_left.mp4',
-    #               '/NasData/home/ych/2024_Multicam/materials/thelive/C.mp4',
-    #               '/NasData/home/ych/2024_Multicam/materials/thelive/D.mp4',
-    #               '/NasData/home/ych/2024_Multicam/materials/thelive/MC_right.mp4']
-    
-    # SpeakerMatcher = SpeakerMatcher(video_list=video_list, segments=first_segments)
-    # SpeakerMatcher.match_speaker()
-    # exit()
-    
     widechannel_video = cv2.VideoCapture(args.widechannel_video)
     spkr_video_paths = args.speaker_videos
-    audio = AudioFileClip(args.widechannel_video)
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    final_video = cv2.VideoWriter(args.final_video_path, fourcc, 30, (1920, 1080))
 
     start_frame = args.start_frame
     end_frame = args.end_frame if args.end_frame else int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
-
+    fps = widechannel_video.get(cv2.CAP_PROP_FPS)
 
     for i, spkr_video_path in enumerate(spkr_video_paths):
         locals()[f'speaker{i+1}_video'] = cv2.VideoCapture(spkr_video_path)
         
+    infer_selected_channels = json.load(open(args.channel_inference_file))
+    infer_selected_channels = [infer_selected_channels[str(i)] for i in range(len(infer_selected_channels))]
+    selected_channels = [speaker_max_prob_mapping.get(channel, 'UNKNOWN_SPEAKER') for channel in infer_selected_channels]
 
-    selected_channels = map_frames_to_speakers(transcription_data)
-    selected_channels = adjust_abnormal_channels(selected_channels)
+    trans_selected_channels = map_frames_to_speakers(transcription_data)
+    trans_selected_channels = smooth_short_segments(trans_selected_channels)
+
+    selected_channels[:len(trans_selected_channels)-1] = trans_selected_channels
+
+    with open('selected_channels.json', 'w') as f:
+        json.dump(selected_channels, f)
+    # print(selected_channels) # @@@
+    plot_segments(selected_channels, filename='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/speaker_segments.png')
+    plot_segments2(selected_channels, filename='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/speaker_segments2.png')
+    # exit()
+
 
     @dataclass
     class origin_video:
@@ -355,50 +395,68 @@ if __name__ == '__main__':
                      speaker=speaker_max_prob_mapping[p.split('/')[-1]]
                      ) for p in spkr_video_paths
     ]
-    pprint(origin_videos)      
-    exit()
+    origin_videos.append(origin_video(video_path=args.widechannel_video,
+                                      video=widechannel_video,
+                                      speaker='widechannel')
+                        )
+    origin_videos = sorted(origin_videos, key=lambda x: x.speaker)
+    pprint(origin_videos) # @@@
+    # exit()
 
-    while all(v.video.isOpened() for v in origin_videos) and widechannel_video.isOpened():
-        retw, frame_w = widechannel_video.read()
-        ret1, frame_1 = speaker1_video.read() # C
-        ret2, frame_2 = speaker2_video.read() # D
-        ret3, frame_3 = speaker3_video.read() # MC
-        current_frame = int(widechannel_video.get(cv2.CAP_PROP_POS_FRAMES))
-
-        try:
-            if start_frame <= current_frame <= end_frame:
-                print(f"Frame: {current_frame}/{end_frame}")
-
-                if selected_channels[current_frame] == '1':
-                    final_video.write(frame_1)
-                elif selected_channels[current_frame] == '2':
-                    final_video.write(frame_2)
-                elif selected_channels[current_frame] == '3':
-                    final_video.write(frame_3)
-                else:
-                    final_video.write(frame_w)
-        except Exception as e:
-            # print(e)
-            break
-
-        if current_frame >= end_frame:
-            widechannel_video.release()
-            for v in origin_videos:
-                v.video.release()
-            break
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    temp_video_path = args.final_video_path.replace('.mp4', '_temp.mp4')
+    final_video = cv2.VideoWriter(temp_video_path, fourcc, 30, (1920, 1080))
     
+    
+    while True:
+        all_videos_have_frames = False
+        frames = {}
+
+        # 모든 비디오에 대해 프레임을 읽기
+        for v in origin_videos:
+            ret, frame = v.video.read()
+            if ret:
+                all_videos_have_frames = True
+                frames[v.speaker] = frame
+            else:
+                print(f"No more frames in video {v.speaker}")
+                frames[v.speaker] = None
+
+        # 만약 모든 비디오에서 더 이상 읽을 수 있는 프레임이 없다면 종료
+        if not all_videos_have_frames:
+            break
+
+        # 각 비디오의 현재 프레임에 대해 필요한 처리 수행
+        current_frame = int(origin_videos[0].video.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+        if current_frame % 100 == 0:
+            print(f'Processing frame {current_frame}/{end_frame}')
+
+        if current_frame >= len(selected_channels):
+            break
+
+        current_speaker = selected_channels[current_frame]
+
+        # 현재 프레임의 speaker와 일치하는 비디오의 프레임을 final_video에 작성
+        if current_speaker in frames and frames[current_speaker] is not None:
+            final_video.write(frames[current_speaker])
+        elif 'widechannel' in frames and frames['widechannel'] is not None:
+            # UNKNOWN_SPEAKER에 해당하는 경우 widechannel 프레임 사용
+            final_video.write(frames['widechannel'])
+
+    # 모든 창 닫기 및 비디오 객체 해제
+    cv2.destroyAllWindows()
     final_video.release()
-    print('Vdieo compilation is done')
+    for v in origin_videos:
+        v.video.release()
 
-    audio = audio.subclip(start_frame/30, end_frame/30)
-    final_video_with_audio = VideoFileClip(args.final_video_path)
-    final_video_with_audio = final_video_with_audio.set_audio(audio)
-    final_video_with_audio.write_videofile(args.final_video_path.replace('.mp4', '_with_audio_adj.mp4'), codec='libx264', audio_codec='aac')
-    os.remove(args.final_video_path)
+    print('Video compilation is done')
 
-    print(f'output video saved at {args.final_video_path.replace(".mp4", "_with_audio_adj.mp4")}')
-
-    tmpdict = {i+1: v for i, v in enumerate(selected_channels)}
-    with open('selected_frames_adj.json', 'w') as f:
-        json.dump(tmpdict, f)
-        
+    # MoviePy를 사용하여 오디오 추가
+    # temp_video_path = '/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/temp_video.mp4'
+    print('Adding audio to the final video...')
+    # temp_video_path = args.final_video_path.replace('.mp4', '_temp.mp4')
+    final_clip = VideoFileClip(temp_video_path)
+    audio_clip = AudioFileClip(args.audio_path)
+    final_video_with_audio = final_clip.set_audio(audio_clip)
+    final_video_with_audio.write_videofile(args.final_video_path, codec='libx264', audio_codec='aac', fps=fps)
+    os.remove(temp_video_path)
