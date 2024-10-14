@@ -107,7 +107,7 @@ def parse_channel_inference(file_path):
     return channel_inference 
     
 
-def smooth_short_segments(speaker_data, threshold=15):
+def smooth_short_segments(speaker_data, threshold=30):
 
     # 배열로 변환
     speaker_data = np.array(speaker_data)
@@ -300,6 +300,19 @@ def reverse_dict(input_dict):
     """
     return {value: key for key, value in input_dict.items()}
 
+def add_audio_to_video(video_path, audio_path, output_path):
+    # ffmpeg를 이용하여 오디오와 비디오를 합침
+    command = [
+        'ffmpeg',
+        '-i', video_path,
+        '-i', audio_path,
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-strict', 'experimental',
+        output_path
+    ]
+    subprocess.run(command, check=True)
+
 if __name__ == '__main__':
     # 38101 frames
     parser = argparse.ArgumentParser()
@@ -326,7 +339,7 @@ if __name__ == '__main__':
                         default='/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp3.json')
     
     parser.add_argument('--final_video_path', type=str, 
-                        default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive_241012(5).mp4',
+                        default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive_241012(6).mp4',
                         help='final video path') 
     args = parser.parse_args()
 
@@ -375,8 +388,8 @@ if __name__ == '__main__':
 
     selected_channels[:len(trans_selected_channels)-1] = trans_selected_channels
 
-    with open('selected_channels.json', 'w') as f:
-        json.dump(selected_channels, f)
+    # with open('selected_channels.json', 'w') as f:
+    #     json.dump(selected_channels, f)
     # print(selected_channels) # @@@
     plot_segments(selected_channels, filename='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/speaker_segments.png')
     plot_segments2(selected_channels, filename='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/speaker_segments2.png')
@@ -404,8 +417,7 @@ if __name__ == '__main__':
     # exit()
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    temp_video_path = args.final_video_path.replace('.mp4', '_temp.mp4')
-    final_video = cv2.VideoWriter(temp_video_path, fourcc, 30, (1920, 1080))
+    final_video = cv2.VideoWriter(args.final_video_path, fourcc, 30, (1920, 1080))
     
     
     while True:
@@ -449,14 +461,8 @@ if __name__ == '__main__':
     for v in origin_videos:
         v.video.release()
 
-    print('Video compilation is done')
+    final_video_with_audio_path = args.final_video_path.replace('.mp4', '_with_audio.mp4')
+    add_audio_to_video(args.final_video_path, args.audio_path, final_video_with_audio_path)
+    
+    print(f"Final video with audio saved to: {final_video_with_audio_path}")
 
-    # MoviePy를 사용하여 오디오 추가
-    # temp_video_path = '/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/temp_video.mp4'
-    print('Adding audio to the final video...')
-    # temp_video_path = args.final_video_path.replace('.mp4', '_temp.mp4')
-    final_clip = VideoFileClip(temp_video_path)
-    audio_clip = AudioFileClip(args.audio_path)
-    final_video_with_audio = final_clip.set_audio(audio_clip)
-    final_video_with_audio.write_videofile(args.final_video_path, codec='libx264', audio_codec='aac', fps=fps)
-    os.remove(temp_video_path)
