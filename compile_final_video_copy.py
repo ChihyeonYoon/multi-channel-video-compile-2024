@@ -18,6 +18,19 @@ def frame_number_to_hhmmss(frame_number, frames_per_second=30):
     minutes, seconds = divmod(remainder, 60)
     return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
 
+def seconds_to_hhmmss(seconds):
+    """
+    초를 HH:MM:SS 형식으로 변환하는 함수.
+    
+    :param seconds: 초 단위 시간
+    :return: HH:MM:SS 형식의 문자열
+    """
+    hours = seconds // 3600  # 시 계산
+    minutes = (seconds % 3600) // 60  # 분 계산
+    seconds = seconds % 60  # 초 계산
+    
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+
 def time_to_frames(time_in_seconds, frames_per_second=30):
     return int(time_in_seconds * frames_per_second)
 
@@ -300,81 +313,93 @@ def reverse_dict(input_dict):
     """
     return {value: key for key, value in input_dict.items()}
 
-def add_audio_to_video(video_path, audio_path, output_path):
-    # ffmpeg를 이용하여 오디오와 비디오를 합침
+def add_audio_to_video(video_path, audio_path, output_path, start_time, end_time):
+    """
+    주어진 구간에 맞게 오디오와 비디오를 합치는 함수.
+    
+    :param video_path: 비디오 파일 경로
+    :param audio_path: 오디오 파일 경로
+    :param output_path: 출력 파일 경로
+    :param start_time: 시작 시간 (초 단위)
+    :param end_time: 종료 시간 (초 단위)
+    """
+    # duration 계산
+    duration = end_time - start_time
+
+    # ffmpeg 명령어 생성 (오디오 자르고 비디오에 합치기)
     command = [
         'ffmpeg',
-        '-i', video_path,
-        '-i', audio_path,
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-strict', 'experimental',
+        '-y',  # 덮어쓰기 옵션 추가
+        '-ss', str(start_time),  # 시작 시간 지정 (초 단위)
+        '-i', video_path,  # 비디오 입력
+        '-ss', str(start_time),  # 오디오 시작 시간 지정 (초 단위)
+        '-i', audio_path,  # 오디오 입력
+        '-t', str(duration),  # 지속 시간 지정 (초 단위)
+        '-c:v', 'copy',  # 비디오를 재인코딩하지 않고 복사
+        '-c:a', 'aac',  # 오디오를 AAC로 인코딩
+        '-strict', 'experimental',  # AAC 인코딩을 위한 설정
+        '-map', '0:v:0',  # 첫 번째 입력에서 비디오를 선택
+        '-map', '1:a:0',  # 두 번째 입력에서 오디오를 선택
+        '-shortest',  # 더 짧은 쪽에 맞춰 종료
         output_path
     ]
+    
     subprocess.run(command, check=True)
 
 if __name__ == '__main__':
     # 38101 frames
     parser = argparse.ArgumentParser()
-    parser.add_argument('--widechannel_video', type=str, 
-                        default='/NasData/home/ych/Multicam_materials/thelive/W.mp4',
+    parser.add_argument('--wide_ch_video', type=str, 
+                        default='./materials/thelive/W.mp4',
                         help='widechannel_video')
-    parser.add_argument('--speaker_videos', type=str, nargs='+',
+    parser.add_argument('--speaker_ch_videos', type=str, nargs='+',
                     default=[
-                        '/NasData/home/ych/Multicam_materials/thelive/C.mp4', 
-                        '/NasData/home/ych/Multicam_materials/thelive/D.mp4', 
-                        '/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', 
-                        '/NasData/home/ych/Multicam_materials/thelive/MC_right.mp4'
+                        './materials/thelive/C.mp4', 
+                        './materials/thelive/D.mp4', 
+                        './materials/thelive/MC_left.mp4', 
+                        './materials/thelive/MC_right.mp4'
                     ],
                     help='List of speaker videos')
     parser.add_argument('--audio_path', type=str,
-                        default='/NasData/home/ych/Multicam_materials/thelive/audio.wav',)
+                        default='./materials/thelive/audio.wav',)
     
-    parser.add_argument('--start_frame', type=int, default=0)
-    parser.add_argument('--end_frame', type=int, default=None)
+    parser.add_argument('--start_time', type=int, default=0,
+                        help='Start time of the segment to process (in seconds)')
+    parser.add_argument('--end_time', type=int, default=0,
+                        help='End time of the segment to process (in seconds)')
     
-    parser.add_argument('--transcript_file', type=str, 
-                        default='/NasData/home/ych/multi-channel-video-compile-2024/transcriptions_.json')
+    parser.add_argument('--transcript_path', type=str, 
+                        default='/compiled_sample/transcriptions.json')
     parser.add_argument('--channel_inference_file', type=str, 
-                        default='/NasData/home/ych/multi-channel-video-compile-2024/multi_channel_lip_infer_exp3.json')
+                        default='/compiled_sample/multi_channel_lip_infer_exp.json')
     
-    parser.add_argument('--final_video_path', type=str, 
-                        default='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/sample_thelive_241012(6).mp4',
-                        help='final video path') 
+    parser.add_argument('--save_path', type=str,
+                        default='./compiled_sample',
+                        help='Path to save the final video')
     args = parser.parse_args()
 
     run_start = time.time()
-
-    # segments = parse_transcript(args.transcript_file)
-    # print(segments)
-    # channel_infer = parse_channel_inference(args.channel_inference_file)
-    # print(channel_infer)
-    # exit()
-    """
-    segments = {idx: {'start': start_time, 
-            'end': end_time, 
-            'start_frame': start_frame, 
-            'end_frame': end_frame, 
-            'speaker': speaker}
-            }
-
-    channel_infer = {frame_number-1 (str): channel:{'prob': [slince, utterance]},
-                    max_prob_channel: str
-                    }
-    """
    
-    multi_channel_data, transcription_data = load_data(args.channel_inference_file, args.transcript_file)
+    multi_channel_data, transcription_data = load_data(args.channel_inference_file, args.transcript_path)
     speaker_max_prob_mapping = map_speaker_to_max_prob_channel(multi_channel_data, transcription_data)
-    # print(speaker_max_prob_mapping)
     speaker_max_prob_mapping = reverse_dict(speaker_max_prob_mapping)
     print(speaker_max_prob_mapping)
-                
-    widechannel_video = cv2.VideoCapture(args.widechannel_video)
-    spkr_video_paths = args.speaker_videos
 
-    start_frame = args.start_frame
-    end_frame = args.end_frame if args.end_frame else int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
+    # Optional in this case. You should disable this block if you are on nomal case.
+    for k in speaker_max_prob_mapping.keys():
+        if k.endswith("_.mp4"):
+            speaker_max_prob_mapping[k.replace("_.mp4", ".mp4")]=speaker_max_prob_mapping.pop(k)
+    print("Optional changes","\n",speaker_max_prob_mapping)
+                
+    widechannel_video = cv2.VideoCapture(args.wide_ch_video)
+    spkr_video_paths = args.speaker_ch_videos
+
+    # FPS 정보 가져오기
     fps = widechannel_video.get(cv2.CAP_PROP_FPS)
+
+    # start_time과 end_time을 초 단위에서 프레임 단위로 변환
+    start_frame = time_to_frames(args.start_time, fps)
+    end_frame = time_to_frames(args.end_time, fps) if args.end_time else int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
 
     for i, spkr_video_path in enumerate(spkr_video_paths):
         locals()[f'speaker{i+1}_video'] = cv2.VideoCapture(spkr_video_path)
@@ -388,14 +413,10 @@ if __name__ == '__main__':
 
     selected_channels[:len(trans_selected_channels)-1] = trans_selected_channels
 
-    # with open('selected_channels.json', 'w') as f:
-    #     json.dump(selected_channels, f)
-    # print(selected_channels) # @@@
-    plot_segments(selected_channels, filename='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/speaker_segments.png')
-    plot_segments2(selected_channels, filename='/NasData/home/ych/multi-channel-video-compile-2024/compiled_sample/speaker_segments2.png')
-    # exit()
-
-
+    # print(selected_channels)
+    plot_segments(selected_channels, filename=args.save_path+'/speaker_segments.png')
+    plot_segments2(selected_channels, filename=args.save_path+'/speaker_segments2.png')
+   
     @dataclass
     class origin_video:
         video_path: str
@@ -408,17 +429,20 @@ if __name__ == '__main__':
                      speaker=speaker_max_prob_mapping[p.split('/')[-1]]
                      ) for p in spkr_video_paths
     ]
-    origin_videos.append(origin_video(video_path=args.widechannel_video,
+    origin_videos.append(origin_video(video_path=args.wide_ch_video,
                                       video=widechannel_video,
                                       speaker='widechannel')
                         )
     origin_videos = sorted(origin_videos, key=lambda x: x.speaker)
-    pprint(origin_videos) # @@@
-    # exit()
+    pprint(origin_videos)
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    final_video = cv2.VideoWriter(args.final_video_path, fourcc, 30, (1920, 1080))
+    final_video_path = args.save_path + "/sample.mp4"
+    final_video = cv2.VideoWriter(final_video_path, fourcc, fps, (1920, 1080))
     
+    # 비디오의 시작을 start_frame으로 설정
+    for v in origin_videos:
+        v.video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     
     while True:
         all_videos_have_frames = False
@@ -438,17 +462,20 @@ if __name__ == '__main__':
         if not all_videos_have_frames:
             break
 
-        # 각 비디오의 현재 프레임에 대해 필요한 처리 수행
+        # 현재 프레임의 인덱스
         current_frame = int(origin_videos[0].video.get(cv2.CAP_PROP_POS_FRAMES)) - 1
-        if current_frame % 100 == 0:
-            print(f'Processing frame {current_frame}/{end_frame}')
+        
+        # 설정된 end_frame에 도달하면 종료
+        if current_frame >= end_frame:
+            break
 
+        # 현재 프레임의 speaker와 일치하는 비디오의 프레임을 final_video에 작성
         if current_frame >= len(selected_channels):
             break
 
         current_speaker = selected_channels[current_frame]
 
-        # 현재 프레임의 speaker와 일치하는 비디오의 프레임을 final_video에 작성
+        # 해당하는 speaker의 비디오 프레임이 있으면 final_video에 작성
         if current_speaker in frames and frames[current_speaker] is not None:
             final_video.write(frames[current_speaker])
         elif 'widechannel' in frames and frames['widechannel'] is not None:
@@ -461,8 +488,10 @@ if __name__ == '__main__':
     for v in origin_videos:
         v.video.release()
 
-    final_video_with_audio_path = args.final_video_path.replace('.mp4', '_with_audio.mp4')
-    add_audio_to_video(args.final_video_path, args.audio_path, final_video_with_audio_path)
+    final_video_with_audio_path = final_video_path.replace('.mp4', '_with_audio.mp4')
+    
+    # 오디오 추가: 선택된 구간만큼 오디오도 잘라서 비디오에 합치기
+    add_audio_to_video(final_video_path, args.audio_path, final_video_with_audio_path, args.start_time, args.end_time)
     
     print(f"Final video with audio saved to: {final_video_with_audio_path}")
 

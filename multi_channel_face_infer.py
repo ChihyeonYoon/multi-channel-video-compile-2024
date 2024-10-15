@@ -196,31 +196,32 @@ if __name__ == "__main__":
     # Parsing arguments
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--widechannel_video', type=str, 
-                        default='/NasData/home/ych/Multicam_materials/thelive/W.mp4',
-                        help='widechannel_video')
+    parser.add_argument('--wide_ch_video', type=str, 
+                        default='./materials/thelive/W.mp4',
+                        help='wide_ch_video')
     
-    parser.add_argument('--speaker_videos', type=str, nargs='+',
+    parser.add_argument('--speaker_ch_videos', type=str, nargs='+',
                     default=[
-                        '/NasData/home/ych/Multicam_materials/thelive/C.mp4', 
-                        '/NasData/home/ych/Multicam_materials/thelive/D.mp4', 
-                        '/NasData/home/ych/Multicam_materials/thelive/MC_left.mp4', 
-                        '/NasData/home/ych/Multicam_materials/thelive/MC_right.mp4'
+                        './materials/thelive/C.mp4', 
+                        './materials/thelive/D.mp4', 
+                        './materials/thelive/MC_left.mp4', 
+                        './materials/thelive/MC_right.mp4'
                     ],
                     help='List of speaker videos')
 
-    parser.add_argument('--weights', type=str, default='/NasData/home/ych/multi-channel-video-compile-2024/speaking_detection_model_weight.pth')
+    parser.add_argument('--face_inference_model', type=str, default='./materials/speaking_detection_model_weight.pth')
+    parser.add_argument('--save_path', type=str, default='./compiled_sample')
     args = parser.parse_args()
 
     run_start = time.time()
 
     # Getting total frames of the wide channel video
-    tmp_cap = cv2.VideoCapture(args.widechannel_video)
+    tmp_cap = cv2.VideoCapture(args.wide_ch_video)
     total_frame = int(tmp_cap.get(cv2.CAP_PROP_FRAME_COUNT))
     tmp_cap.release()
 
     # Video paths and speaker names
-    spkr_video_paths = args.speaker_videos
+    spkr_video_paths = args.speaker_ch_videos
     speaker_names = [s.split('/')[-1] for s in spkr_video_paths]
     
     # Creating speaker instances and multiprocessing lists and queues
@@ -243,7 +244,7 @@ if __name__ == "__main__":
 
     # Start consumer processes
     for i, speaker in enumerate(speakers):
-        speaker.consumer = mp.Process(target=consumer, args=(speaker.queue, speaker.result_list, args.weights, i))
+        speaker.consumer = mp.Process(target=consumer, args=(speaker.queue, speaker.result_list, args.face_inference_model, i))
         speaker.consumer.start()
         print(f"{speaker.name} consumer started")
 
@@ -280,24 +281,6 @@ if __name__ == "__main__":
         # result_dict[int(i)] = frame_result
         result_dict[str(i)] = max_prob_channel
 
-    # max_prob_channel adjusting for every 30 frames with most common channel
-    
-    
-
-    # 함수 실행 예시
-    # switching_interval = 15  # 또는 30으로 설정 가능
-    # result_dict_with_common_channel = add_most_common_channel_per_interval(result_dict, switching_interval)
-
-    # # 결과 확인
-    # import pprint
-    # pprint.pprint(result_dict_with_common_channel)
-    
-
-
-
     # JSON 파일로 저장
-    with open("./multi_channel_lip_infer_exp3.json", 'w') as f:
+    with open(args.save_path + "/multi_channel_face_infer.json", 'w') as f:
         json.dump(result_dict, f, indent=4)
-
-    # with open("./result_dict_with_common_channel.json", 'w') as f:
-    #     json.dump(result_dict_with_common_channel, f, indent=4)
