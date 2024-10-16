@@ -40,6 +40,7 @@ pyanoote.audio == 3.3.1 is required to run the solution.
         |-- pytorch_model.bin
         |-- speaking_detection_model_weight.pth
         |
+        |-- your_audio
         |-- your_wide_video
         |-- your_speaker_ch_1_video
         |-- your_speaker_ch_2_video
