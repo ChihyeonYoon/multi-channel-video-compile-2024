@@ -3,7 +3,7 @@
 This is the multi-channel video compile solution.
 Compile multiple video files into a single video file with multiple channels.
 This solution is implemented referring to the whisperx and pyannote-audio speech recognition and speaker diarization solutions.
-
+![Image description](figs/overall_fig.png)
 # Installation
 pytorch
 ```
@@ -65,6 +65,6 @@ You can download speaking_detection_model_weight.pth from https://drive.google.c
 # Visualize the result
 
 The following images are the visualization of the speaker diarization result.
-![Image description](./outputs/speaker_segments.png)
-![Image description](./outputs/speaker_segments2.png)
+![Image description](./figs/speaker_segments.png)
+![Image description](./figs/speaker_segments2.png)
 
