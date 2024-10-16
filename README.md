@@ -17,6 +17,7 @@ libcudnn8 is required to run the solution.
 pyanoote.audio == 3.3.1 is required to run the solution.
 
 # Directory Structure
+To run this solution, you need to match the directory structure below.
 ```
 |-- ./
     |-- README.md
