@@ -36,9 +36,7 @@ pyanoote.audio == 3.3.1 is required to run the solution.
         |-- sample.mp4
     |-- materials/
         |   # The following files are not included in the repository
-        |   # You can download pytorch_model.bin from https://huggingface.co/pyannote/segmentation/tree/main
-        |   # You can download speaking_detection_model_weight.pth from https://drive.google.com/file/d/1dia_na1ci_B1fDfPX5fpJBbofDUvBF1L/view?usp=drive_link
-        |
+        |   
         |-- pytorch_model.bin
         |-- speaking_detection_model_weight.pth
         |-- thelive/
@@ -62,7 +60,8 @@ pyanoote.audio == 3.3.1 is required to run the solution.
             |-- audio.wav
             |-- camera1_synced.mp4
 ```
-
+You can download pytorch_model.bin from https://huggingface.co/pyannote/segmentation/tree/main
+You can download speaking_detection_model_weight.pth from https://drive.google.com/file/d/1dia_na1ci_B1fDfPX5fpJBbofDUvBF1L/view?usp=drive_link
 # Visualize the result
 
 The following images are the visualization of the speaker diarization result.
