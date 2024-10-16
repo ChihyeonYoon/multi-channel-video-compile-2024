@@ -6,7 +6,6 @@ This solution is implemented referring to the whisperx and pyannote-audio speech
 ![Image description](figs/overall_fig.png)
 
 # Installation
-pytorch
 ```
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 # OR
