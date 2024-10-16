@@ -5,3 +5,5 @@
 *.mp4
 *.wav
 *.bin
+tree_output.txt
+print_directory_structure.py

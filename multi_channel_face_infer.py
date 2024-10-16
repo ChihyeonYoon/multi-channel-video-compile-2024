@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 import mediapipe
-from face_exp import mediapipe_inference, get_rectsize, swin_face
+from face_util import mediapipe_inference, swin_face
 
 # Producer function
 def producer(queue, video_path, total_frame):
@@ -28,7 +28,7 @@ def producer(queue, video_path, total_frame):
         current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
 
         if current_frame % 30 == 0:
-            print(f"Process {mp.current_process().name} processing frame {current_frame}")
+            print(f"Producer {mp.current_process().name} processing frames {current_frame - 29} - {current_frame}")
 
         if not ret:
             break
@@ -54,7 +54,14 @@ def producer(queue, video_path, total_frame):
 
 # Consumer function
 def consumer(queue, result_list, weights, device_num):
-    device = torch.device("cuda:{}".format(device_num)) if torch.cuda.is_available() else torch.device("cpu")
+    if torch.cuda.is_available():
+        device_count = torch.cuda.device_count()
+        if device_count == 1:  # GPU가 하나만 있을 경우
+            device_num = 0
+        device = torch.device("cuda:{}".format(device_num))
+    else:
+        device = torch.device("cpu")
+
     model = swin_face()
     checkpoint = weights
     model = nn.DataParallel(model)
@@ -78,7 +85,7 @@ def consumer(queue, result_list, weights, device_num):
                 
                 # 남아있는 배치가 있을 경우 처리
                 if frame_batch:
-                    print(f"Process {mp.current_process().name} processing remaining frames")
+                    print(f"Consumer {mp.current_process().name} processing remaining frames")
                     frame_batch = torch.stack(frame_batch).to(device)
                     result = swin_face_model(frame_batch)
 
@@ -111,7 +118,7 @@ def consumer(queue, result_list, weights, device_num):
             
             # 배치 크기가 30이 되었을 때 처리
             if len(frame_batch) == 30:
-                print(f"Process {mp.current_process().name} processing frames {current_frame - 29} - {current_frame}")
+                print(f"Consumer {mp.current_process().name} processing frames {current_frame - 29} - {current_frame}")
                 frame_batch = torch.stack(frame_batch).to(device)
                 result = swin_face_model(frame_batch)
 

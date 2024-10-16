@@ -2,21 +2,33 @@ import json
 import cv2
 import time
 import os
-from moviepy.editor import VideoFileClip, AudioFileClip
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 from pprint import pprint
-import ffmpeg
-import subprocess
+import moviepy.editor
+from pydub import AudioSegment
 
 def frame_number_to_hhmmss(frame_number, frames_per_second=30):
     total_seconds = frame_number / frames_per_second
     hours, remainder = divmod(total_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+
+def seconds_to_hhmmss(seconds):
+    """
+    초를 HH:MM:SS 형식으로 변환하는 함수.
+    
+    :param seconds: 초 단위 시간
+    :return: HH:MM:SS 형식의 문자열
+    """
+    hours = seconds // 3600  # 시 계산
+    minutes = (seconds % 3600) // 60  # 분 계산
+    seconds = seconds % 60  # 초 계산
+    
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
 def time_to_frames(time_in_seconds, frames_per_second=30):
     return int(time_in_seconds * frames_per_second)
@@ -300,18 +312,36 @@ def reverse_dict(input_dict):
     """
     return {value: key for key, value in input_dict.items()}
 
-def add_audio_to_video(video_path, audio_path, output_path):
-    # ffmpeg를 이용하여 오디오와 비디오를 합침
-    command = [
-        'ffmpeg',
-        '-i', video_path,
-        '-i', audio_path,
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-strict', 'experimental',
-        output_path
-    ]
-    subprocess.run(command, check=True)
+def add_trimmed_audio_to_video(start_time, end_time, final_video_path, audio_path, output_path):
+    # Load original audio
+    audio = AudioSegment.from_wav(audio_path)
+    
+    # Convert start and end times from seconds to milliseconds
+    start_ms = start_time * 1000
+    end_ms = end_time * 1000
+    
+    # Trim audio
+    trimmed_audio = audio[start_ms:end_ms]
+    
+    # Save the trimmed audio to a temporary file
+    temp_audio_path = "temp_trimmed_audio.wav"
+    trimmed_audio.export(temp_audio_path, format="wav")
+    
+    # Load the video
+    video = moviepy.editor.VideoFileClip(final_video_path)
+    
+    # Load the trimmed audio
+    audio_clip = moviepy.editor.AudioFileClip(temp_audio_path)
+    
+    # Set the audio to the video
+    video_with_audio = video.set_audio(audio_clip)
+    
+    # Write the final output video
+    video_with_audio.write_videofile(output_path, codec="libx264", audio_codec="aac")
+    
+    # Remove the temporary audio file
+    os.remove(temp_audio_path)
+
 
 if __name__ == '__main__':
     # 38101 frames
@@ -330,10 +360,12 @@ if __name__ == '__main__':
     parser.add_argument('--audio_path', type=str,
                         default='./materials/thelive/audio.wav',)
     
-    parser.add_argument('--start_time', type=int, default=0)
-    parser.add_argument('--end_time', type=int, default=0)
+    parser.add_argument('--start_time', type=int, default=0,
+                        help='Start time of the segment to process (in seconds)')
+    parser.add_argument('--end_time', type=int, default=0,
+                        help='End time of the segment to process (in seconds)')
     
-    parser.add_argument('--transcript_file', type=str, 
+    parser.add_argument('--transcript_path', type=str, 
                         default='/compiled_sample/transcriptions.json')
     parser.add_argument('--channel_inference_file', type=str, 
                         default='/compiled_sample/multi_channel_lip_infer_exp.json')
@@ -345,17 +377,26 @@ if __name__ == '__main__':
 
     run_start = time.time()
    
-    multi_channel_data, transcription_data = load_data(args.channel_inference_file, args.transcript_file)
+    multi_channel_data, transcription_data = load_data(args.channel_inference_file, args.transcript_path)
     speaker_max_prob_mapping = map_speaker_to_max_prob_channel(multi_channel_data, transcription_data)
     speaker_max_prob_mapping = reverse_dict(speaker_max_prob_mapping)
     print(speaker_max_prob_mapping)
-                
-    widechannel_video = cv2.VideoCapture(args.widechannel_video)
-    spkr_video_paths = args.speaker_videos
 
-    start_frame = args.start_frame
-    end_frame = args.end_frame if args.end_frame else int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
+    # Optional in this case. You should disable this block if you are on normal case.
+    for k in speaker_max_prob_mapping.keys():
+        if k.endswith("_.mp4"):
+            speaker_max_prob_mapping[k.replace("_.mp4", ".mp4")]=speaker_max_prob_mapping.pop(k)
+    print("Optional changes","\n",speaker_max_prob_mapping)
+                
+    widechannel_video = cv2.VideoCapture(args.wide_ch_video)
+    spkr_video_paths = args.speaker_ch_videos
+
+    # FPS 정보 가져오기
     fps = widechannel_video.get(cv2.CAP_PROP_FPS)
+
+    # start_time과 end_time을 초 단위에서 프레임 단위로 변환
+    start_frame = time_to_frames(args.start_time, fps)
+    end_frame = time_to_frames(args.end_time, fps) if args.end_time else int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
 
     for i, spkr_video_path in enumerate(spkr_video_paths):
         locals()[f'speaker{i+1}_video'] = cv2.VideoCapture(spkr_video_path)
@@ -369,7 +410,7 @@ if __name__ == '__main__':
 
     selected_channels[:len(trans_selected_channels)-1] = trans_selected_channels
 
-    print(selected_channels)
+    # print(selected_channels)
     plot_segments(selected_channels, filename=args.save_path+'/speaker_segments.png')
     plot_segments2(selected_channels, filename=args.save_path+'/speaker_segments2.png')
    
@@ -385,18 +426,20 @@ if __name__ == '__main__':
                      speaker=speaker_max_prob_mapping[p.split('/')[-1]]
                      ) for p in spkr_video_paths
     ]
-    origin_videos.append(origin_video(video_path=args.widechannel_video,
+    origin_videos.append(origin_video(video_path=args.wide_ch_video,
                                       video=widechannel_video,
                                       speaker='widechannel')
                         )
     origin_videos = sorted(origin_videos, key=lambda x: x.speaker)
-    pprint(origin_videos) # @@@
-    # exit()
+    pprint(origin_videos)
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     final_video_path = args.save_path + "/sample.mp4"
-    final_video = cv2.VideoWriter(final_video_path, fourcc, 30, (1920, 1080))
+    final_video = cv2.VideoWriter(final_video_path, fourcc, fps, (1920, 1080))
     
+    # 비디오의 시작을 start_frame으로 설정
+    for v in origin_videos:
+        v.video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     
     while True:
         all_videos_have_frames = False
@@ -416,22 +459,28 @@ if __name__ == '__main__':
         if not all_videos_have_frames:
             break
 
-        # 각 비디오의 현재 프레임에 대해 필요한 처리 수행
+        # 현재 프레임의 인덱스
         current_frame = int(origin_videos[0].video.get(cv2.CAP_PROP_POS_FRAMES)) - 1
-        if current_frame % 100 == 0:
-            print(f'Processing frame {current_frame}/{end_frame}')
+        
+        # 설정된 end_frame에 도달하면 종료
+        if current_frame >= end_frame:
+            break
 
+        # 현재 프레임의 speaker와 일치하는 비디오의 프레임을 final_video에 작성
         if current_frame >= len(selected_channels):
             break
 
         current_speaker = selected_channels[current_frame]
 
-        # 현재 프레임의 speaker와 일치하는 비디오의 프레임을 final_video에 작성
+        # 해당하는 speaker의 비디오 프레임이 있으면 final_video에 작성
         if current_speaker in frames and frames[current_speaker] is not None:
             final_video.write(frames[current_speaker])
         elif 'widechannel' in frames and frames['widechannel'] is not None:
             # UNKNOWN_SPEAKER에 해당하는 경우 widechannel 프레임 사용
             final_video.write(frames['widechannel'])
+        
+        if current_frame % 100 == 0:
+            print(f"Processing frame {current_frame}/{end_frame}")
 
     # 모든 창 닫기 및 비디오 객체 해제
     cv2.destroyAllWindows()
@@ -439,9 +488,7 @@ if __name__ == '__main__':
     for v in origin_videos:
         v.video.release()
 
-    final_video_with_audio_path = final_video_path.replace('.mp4', '_with_audio.mp4')
-    add_audio_to_video(args.final_video_path, args.audio_path, final_video_with_audio_path)
-    
-    print(f"Final video with audio saved to: {final_video_with_audio_path}")
-
+    add_trimmed_audio_to_video(args.start_time, args.end_time, 
+                               final_video_path, args.audio_path, 
+                               final_video_path.replace('.mp4', '_with_audio.mp4'))
 
