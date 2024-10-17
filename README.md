@@ -54,8 +54,7 @@ You can download speaking_detection_model_weight.pth from [here](https://drive.g
 
 # How to run
 Argument Descriptions
-audio_path: Path to the input audio file.
-
+- audio_path: Path to the input audio file.
 - wide_ch_video: Path to the wide-channel (full-view) video file.
 - speaker_ch_videos_for_inference: Paths to each speaker's video channels (used for inference).
 - speaker_ch_videos_for_compilation: Paths to each speaker's video channels (used for final video compilation).
