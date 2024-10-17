@@ -39,7 +39,7 @@ To run this solution, you need to match the directory structure below.
         |   # The following files are not included in the repository
         |   
         |-- pytorch_model.bin
-        |-- speaking_detection_model_weight.pth
+        |-- speech_state_estimation_model.pth
         |
         |-- your_audio
         |-- your_wide_video
@@ -63,7 +63,7 @@ audio_path: Path to the input audio file.
 - start_time: Start time (in seconds) used during video compilation.
 - end_time: End time (in seconds) used during video compilation.
 - diarization_model: Path to the pre-trained model for audio diarization.
-- face_inference_model: Path to the model used for face recognition and speaker detection.
+- face_inference_model: Path to the model used for speach state estimation.
 - save_path: Directory where intermediate results and the final output will be saved.
 
 ```

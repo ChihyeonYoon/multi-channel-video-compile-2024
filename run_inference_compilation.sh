@@ -9,7 +9,7 @@ start_time=60
 end_time=120
 
 diarization_model="./materials/pytorch_model.bin"
-face_inference_model="./materials/speaking_detection_model_weight.pth"
+face_inference_model="./materials/speech_state_estimation_model.pth"
 
 save_path="./outputs"
 
