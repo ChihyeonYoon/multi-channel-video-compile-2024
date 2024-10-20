@@ -3,10 +3,10 @@ wide_ch_video="materials/thelive/W.mp4"
 
 speaker_ch_videos_for_inference="materials/thelive/C.mp4 materials/thelive/D.mp4 materials/thelive/MC_left_.mp4 materials/thelive/MC_right_.mp4"
 speaker_ch_videos_for_compilation="materials/thelive/C.mp4 materials/thelive/D.mp4 materials/thelive/MC_left.mp4 materials/thelive/MC_right.mp4"
-num_speakers=4
 
-start_time=60
-end_time=120
+num_speakers=4
+start_time=0
+end_time=9999999999
 
 diarization_model="./materials/pytorch_model.bin"
 face_inference_model="./materials/speech_state_estimation_model.pth"

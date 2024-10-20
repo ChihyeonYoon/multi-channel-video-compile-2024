@@ -393,6 +393,7 @@ if __name__ == '__main__':
 
     # FPS 정보 가져오기
     fps = widechannel_video.get(cv2.CAP_PROP_FPS)
+    total_frames = int(widechannel_video.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # start_time과 end_time을 초 단위에서 프레임 단위로 변환
     start_frame = time_to_frames(args.start_time, fps)
@@ -478,7 +479,7 @@ if __name__ == '__main__':
         elif 'widechannel' in frames and frames['widechannel'] is not None:
             # UNKNOWN_SPEAKER에 해당하는 경우 widechannel 프레임 사용
             final_video.write(frames['widechannel'])
-        
+        end_frame = min(end_frame, total_frames)
         if current_frame % 100 == 0:
             print(f"Processing frame {current_frame}/{end_frame}")
 

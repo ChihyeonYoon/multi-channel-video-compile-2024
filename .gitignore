@@ -8,3 +8,5 @@ __pycache__
 *.bin
 tree_output.txt
 print_directory_structure.py
+run_inference_compilation_1.sh
+outputs(1)/*
