@@ -81,6 +81,6 @@ python compile_final_video.py --wide_ch_video [wide-channel video path] --speake
 # Visualize the result
 
 The following images are the visualization of the speaker diarization result.
-![Image description](./figs/speaker_segments.png)
-![Image description](./figs/speaker_segments2.png)
+![Image description](./figs/output_plot2.png)
+<!-- ![Image description](./figs/speaker_segments2.png) -->
 
