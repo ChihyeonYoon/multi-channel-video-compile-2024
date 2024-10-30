@@ -46,30 +46,6 @@ def get_frame_numbers(start_time, end_time, frame_rate):
     frame_numbers = list(range(start_frame, end_frame))
 
     return frame_numbers
-"""
-def parse_transcript(file_path):
-    # with open(file_path, 'r', encoding='utf-8') as file:
-    #     lines = file.readlines()
-
-    with open(file_path, 'r', encoding='utf-8') as file:
-        trans_list = json.load(file)
-    
-    
-    speaker_segments = {}
-
-    for item in trans_list:
-        start_time = float(item['start'])
-        end_time = float(item['end'])
-        speaker = str(item['speaker'])
-        
-        if speaker not in speaker_segments:
-            speaker_segments[speaker] = []
-        
-        frame_numbers = get_frame_numbers(float(start_time), float(end_time), 30)
-        speaker_segments[speaker] += frame_numbers
-    
-    return speaker_segments
-"""
 
 def parse_transcript(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -410,7 +386,10 @@ if __name__ == '__main__':
     trans_selected_channels = smooth_short_segments(trans_selected_channels)
 
     selected_channels[:len(trans_selected_channels)-1] = trans_selected_channels
-
+    
+    # Save selected channels to a JSON file
+    selected_channels_dict = {i: selected_channels[i] for i in range(len(selected_channels))}
+    
     # print(selected_channels)
     plot_segments(selected_channels, filename=args.save_path+'/speaker_segments.png')
     plot_segments2(selected_channels, filename=args.save_path+'/speaker_segments2.png')
