@@ -342,9 +342,9 @@ if __name__ == '__main__':
                         help='End time of the segment to process (in seconds)')
     
     parser.add_argument('--transcript_path', type=str, 
-                        default='/compiled_sample/transcriptions.json')
+                        default='./outputs/transcriptions.json')
     parser.add_argument('--channel_inference_file', type=str, 
-                        default='/compiled_sample/multi_channel_lip_infer_exp.json')
+                        default='./outputs/multi_channel_face_infer.json')
     
     parser.add_argument('--save_path', type=str,
                         default='./compiled_sample',
@@ -357,6 +357,7 @@ if __name__ == '__main__':
     speaker_max_prob_mapping = map_speaker_to_max_prob_channel(multi_channel_data, transcription_data)
     speaker_max_prob_mapping = reverse_dict(speaker_max_prob_mapping)
     print(speaker_max_prob_mapping)
+    # exit()
 
     # Optional in this case. You should disable this block if you are on normal case.
     for k in speaker_max_prob_mapping.keys():

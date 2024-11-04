@@ -124,7 +124,18 @@ def plot_inferred_data3(infered_data, segment_data, fps=30, output_path='output_
     speakers = list(infered_data.values())
 
     # Define speaker order (from bottom to top)
-    ordered_speakers = ["Interst_Segment", "Interst_SPEAKERS_OVER_TIME", "SPEAKERS_OVER_TIME", "UNKNOWN_SPEAKER", "SPEAKER_03", "SPEAKER_02", "SPEAKER_01", "SPEAKER_00"]
+    # Define speaker order (from bottom to top) with line breaks for longer labels
+    ordered_speakers = [
+        "Label\nSegment", 
+        "Label\nSPEAKERS_OVER_TIME", 
+        "SPEAKERS_OVER_TIME", 
+        "UNKNOWN_SPEAKER", 
+        "SPEAKER_03", 
+        "SPEAKER_02", 
+        "SPEAKER_01", 
+        "SPEAKER_00"
+    ]
+
     speaker_indices = {speaker: idx for idx, speaker in enumerate(ordered_speakers)}
     
     # Define plot
@@ -158,12 +169,12 @@ def plot_inferred_data3(infered_data, segment_data, fps=30, output_path='output_
         color = color_palette.get("Interst_Segment", "skyblue")
         
         # Draw the Interst_Segment bar
-        interst_segment_y_value = speaker_indices["Interst_Segment"]
+        interst_segment_y_value = speaker_indices["Label\nSegment"]
         rect = patches.Rectangle((start_time, interst_segment_y_value - 0.4), end_time - start_time, 0.8, color=color, alpha=0.5)
         ax.add_patch(rect)
         
         # Draw the Interst_SPEAKERS_OVER_TIME bar based on frames
-        interst_speakers_y_value = speaker_indices["Interst_SPEAKERS_OVER_TIME"]
+        interst_speakers_y_value = speaker_indices["Label\nSPEAKERS_OVER_TIME"]
         for frame_num, speaker in segment["frames"].items():
             frame_time = int(frame_num) / fps
             speaker_color = color_palette.get(speaker, "skyblue")
@@ -187,7 +198,7 @@ if __name__ == '__main__':
     infered_data = {str(frame_num):str(speaker), ...}
     """
     
-    segment_data = json.load(open('./materials/thelive/annotations_thelive.json', 'r'))
+    segment_data = json.load(open('./materials/thelive/label_thelive.json', 'r'))
     """
     segment_data = [
         {
@@ -208,6 +219,6 @@ if __name__ == '__main__':
         "UNKNOWN_SPEAKER": "#E76F51"
     }
     
-    plot_inferred_data(infered_data, output_path='output_plot.png')
-    plot_inferred_data2(infered_data, output_path='output_plot2.png')
-    plot_inferred_data3(infered_data, segment_data, output_path='output_plot3.png')
+    plot_inferred_data(infered_data, output_path='output_plot_lb.png')
+    plot_inferred_data2(infered_data, output_path='output_plot2_lb.png')
+    plot_inferred_data3(infered_data, segment_data, output_path='output_plot3_lb.png')
