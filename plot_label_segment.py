@@ -35,12 +35,19 @@ def plot_inferred_data(infered_data, fps=30, output_path='output_plot.png'):
     combined_y_value = speaker_indices["SPEAKERS_OVER_TIME"]
     plt.scatter(time_points, [combined_y_value for _ in speakers], c=colors, alpha=0.3)
     
-    # Update y-ticks to include the combined value
-    plt.yticks(range(len(ordered_speakers)), ordered_speakers)
+    updated_y_labels = [
+    "Channel Transition\nOver Time",  # SPEAKERS_OVER_TIME
+    "Wide Channel",                  # UNKNOWN_SPEAKER
+    "Channel #3",                    # SPEAKER_03
+    "Channel #2",                    # SPEAKER_02
+    "Channel #1",                    # SPEAKER_01
+    "Channel #0"                     # SPEAKER_00
+    ]
+    plt.yticks(range(len(ordered_speakers)), updated_y_labels)
     
     plt.xlabel('Time (seconds)')
-    plt.ylabel('Speakers')
-    plt.title('Speakers Over Time')
+    plt.ylabel('Channels')
+    plt.title('Channel Transition Over Time')
     plt.savefig(output_path)
 
 def plot_inferred_data2(infered_data, fps=30, output_path='output_plot2.png'):
@@ -89,11 +96,19 @@ def plot_inferred_data2(infered_data, fps=30, output_path='output_plot2.png'):
         ax.add_patch(rect)
     
     # Update y-ticks to include the combined value
-    plt.yticks(range(len(ordered_speakers)), ordered_speakers)
+    updated_y_labels = [
+    "Channel Transition\nOver Time",  # SPEAKERS_OVER_TIME
+    "Wide Channel",                  # UNKNOWN_SPEAKER
+    "Channel #3",                    # SPEAKER_03
+    "Channel #2",                    # SPEAKER_02
+    "Channel #1",                    # SPEAKER_01
+    "Channel #0"                     # SPEAKER_00
+    ]
+    plt.yticks(range(len(ordered_speakers)), updated_y_labels)
     
     plt.xlabel('Time (seconds)')
-    plt.ylabel('Speakers')
-    plt.title('Speakers Over Time')
+    plt.ylabel('Channels')
+    plt.title('Channel Transition Over Time')
     plt.xlim(min(time_points), max(time_points))
     plt.ylim(-1, len(ordered_speakers))
     plt.savefig(output_path)
@@ -182,11 +197,22 @@ def plot_inferred_data3(infered_data, segment_data, fps=30, output_path='output_
             ax.add_patch(rect)
     
     # Update y-ticks to include the combined value
-    plt.yticks(range(len(ordered_speakers)), ordered_speakers)
+    # plt.yticks(range(len(ordered_speakers)), ordered_speakers)
+    updated_y_labels = [
+    "Label\nSegment", 
+    "Label\nChannel Transition\nOver Time",
+    "Channel Transition\nOver Time",  # SPEAKERS_OVER_TIME
+    "Wide Channel",                  # UNKNOWN_SPEAKER
+    "Channel #3",                    # SPEAKER_03
+    "Channel #2",                    # SPEAKER_02
+    "Channel #1",                    # SPEAKER_01
+    "Channel #0"                     # SPEAKER_00
+    ]
+    plt.yticks(range(len(ordered_speakers)), updated_y_labels)
     
     plt.xlabel('Time (seconds)')
-    plt.ylabel('Speakers')
-    plt.title('Speakers Over Time')
+    plt.ylabel('Channels')
+    plt.title('Channel Transition Over Time')
     plt.xlim(min(time_points), max(time_points))
     plt.ylim(-1, len(ordered_speakers))
     plt.savefig(output_path)
@@ -258,11 +284,16 @@ def plot_inferred_data4(infered_data, segment_data, fps=30, output_path='output_
             ax.add_patch(rect)
     
     # y-ticks 업데이트
-    plt.yticks(range(len(ordered_speakers)), ordered_speakers)
+    updated_y_labels = [
+    "Label\nSegment", 
+    "Label\nChannel Transition\nOver Time",
+    "Channel Transition\nOver Time",  # SPEAKERS_OVER_TIME
+    ]
+    plt.yticks(range(len(ordered_speakers)), updated_y_labels)
     
     plt.xlabel('Time (seconds)')
-    plt.ylabel('Speakers')
-    plt.title('Speakers Over Time')
+    plt.ylabel('Channels')
+    plt.title('Channel Transition Over Time')
     plt.xlim(min(time_points), max(time_points))
     plt.ylim(-1, len(ordered_speakers))
     plt.savefig(output_path)
