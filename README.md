@@ -50,7 +50,7 @@ To run this solution, you need to match the directory structure below.
 ```
 You can download pytorch_model.bin from https://huggingface.co/pyannote/segmentation/tree/main
 
-You can download speaking_detection_model_weight.pth from [here](https://drive.google.com/file/d/1dia_na1ci_B1fDfPX5fpJBbofDUvBF1L/view?usp=drive_link).
+You can download speech_state_estimation_model.pth from [here](https://drive.google.com/file/d/1dia_na1ci_B1fDfPX5fpJBbofDUvBF1L/view?usp=sharing).
 
 # How to run
 Argument Descriptions
