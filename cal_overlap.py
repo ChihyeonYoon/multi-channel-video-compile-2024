@@ -159,3 +159,126 @@ plt.ylabel('Overlap Ratio')
 plt.title('Trend of Overlap Ratio by Segment Length')
 plt.grid(True)
 plt.savefig('overlap_ratio_by_length.png')
+
+label_data_no_segment = {}
+for segment in label_data:
+    for frame, speaker in segment['frames'].items():
+        label_data_no_segment[frame] = speaker
+
+# selected_channels와 label_data_no_segment의 교집합 계산
+def calculate_matching_rate(dict1, dict2, intervals, frame_rate):
+    """
+    Calculates the matching rates between two dictionaries over specified intervals,
+    including any remaining intervals and the total matching rate.
+
+    Parameters:
+    dict1 (dict): First dictionary with frame numbers (as strings) as keys and values to compare.
+    dict2 (dict): Second dictionary with frame numbers (as strings) as keys and values to compare.
+    intervals (list of tuples): List of intervals in the form [(start_time, end_time), ...].
+    frame_rate (float): Frames per second (FPS) to convert time to frame numbers.
+
+    Returns:
+    dict: Dictionary containing matching rates for each interval and the total matching rate.
+    """
+    matching_rates = {}
+
+    # Convert frame numbers to integers
+    frames1 = set(int(k) for k in dict1.keys())
+    frames2 = set(int(k) for k in dict2.keys())
+
+    # Get common frames
+    common_frames = frames1.intersection(frames2)
+
+    if not common_frames:
+        matching_rates['total'] = None
+        print("No common frames between the two dictionaries.")
+        return matching_rates
+
+    # Compute total matching rate
+    total_frames = len(common_frames)
+    matching_count = sum(
+        1 for frame in common_frames if dict1[str(frame)] == dict2[str(frame)]
+    )
+    matching_rates['total'] = matching_count / total_frames
+
+    # Get min and max frame numbers
+    min_frame = min(common_frames)
+    max_frame = max(common_frames)
+
+    # Process specified intervals
+    for idx, (start_time, end_time) in enumerate(intervals):
+        # Convert times to frame numbers
+        start_frame = int(start_time * frame_rate)
+        if end_time == 'end':
+            end_frame = max_frame + 1  # Include last frame
+        else:
+            end_frame = int(end_time * frame_rate)
+
+        # Get frames in interval
+        interval_frames = [
+            frame for frame in common_frames if start_frame <= frame < end_frame
+        ]
+
+        if not interval_frames:
+            print(f"No frames in interval {idx} ({start_time}s to {end_time}s).")
+            matching_rates[idx] = None
+            continue
+
+        interval_total_frames = len(interval_frames)
+        interval_matching_count = sum(
+            1 for frame in interval_frames if dict1[str(frame)] == dict2[str(frame)]
+        )
+        matching_rate = interval_matching_count / interval_total_frames
+        matching_rates[idx] = matching_rate
+
+    # Check for remaining interval after the last specified interval
+    last_end_time = intervals[-1][1]
+    if last_end_time != 'end':
+        if isinstance(last_end_time, (int, float)):
+            last_end_frame = int(last_end_time * frame_rate)
+            if last_end_frame < max_frame:
+                # There are frames after the last specified interval
+                start_time = last_end_time
+                end_time = 'end'
+                start_frame = last_end_frame
+                end_frame = max_frame + 1  # Include last frame
+
+                # Get frames in interval
+                interval_frames = [
+                    frame for frame in common_frames if start_frame <= frame < end_frame
+                ]
+
+                if interval_frames:
+                    interval_total_frames = len(interval_frames)
+                    interval_matching_count = sum(
+                        1 for frame in interval_frames if dict1[str(frame)] == dict2[str(frame)]
+                    )
+                    matching_rate = interval_matching_count / interval_total_frames
+                    # Use next index for this interval
+                    matching_rates[idx + 1] = matching_rate
+                else:
+                    print(f"No frames in interval {idx + 1} ({start_time}s to end).")
+                    matching_rates[idx + 1] = None
+
+    return matching_rates
+
+intervals = [(0, 10), (10, 150)]
+rates = calculate_matching_rate(label_data_no_segment, selected_channels, intervals, 30)
+
+if rates['total'] is not None:
+        print(f"Total matching rate: {rates['total'] * 100:.2f}%")
+else:
+    print("No common frames in total interval.")
+
+for idx in sorted(k for k in rates.keys() if k != 'total'):
+    rate = rates[idx]
+    if rate is not None:
+        if idx == len(intervals):
+            print(f"Interval {idx} (150s to end): Matching rate: {rate * 100:.2f}%")
+        else:
+            start_time = intervals[idx][0]
+            end_time = intervals[idx][1]
+            print(f"Interval {idx} ({start_time}s to {end_time}s): Matching rate: {rate * 100:.2f}%")
+    else:
+        print(f"Interval {idx}: No frames to compare.")
+
