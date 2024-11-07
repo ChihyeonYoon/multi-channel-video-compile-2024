@@ -168,59 +168,58 @@ for segment in label_data:
 # selected_channels와 label_data_no_segment의 교집합 계산
 def calculate_matching_rate(dict1, dict2, intervals, frame_rate):
     """
-    Calculates the matching rates between two dictionaries over specified intervals,
-    including any remaining intervals and the total matching rate.
+    두 개의 딕셔너리에 대해 지정된 구간별 일치율을 계산하는 함수입니다.
 
     Parameters:
-    dict1 (dict): First dictionary with frame numbers (as strings) as keys and values to compare.
-    dict2 (dict): Second dictionary with frame numbers (as strings) as keys and values to compare.
-    intervals (list of tuples): List of intervals in the form [(start_time, end_time), ...].
-    frame_rate (float): Frames per second (FPS) to convert time to frame numbers.
+    dict1 (dict): 첫 번째 딕셔너리로, 키는 프레임 번호(문자열)이고 값은 비교할 값입니다.
+    dict2 (dict): 두 번째 딕셔너리로, 키는 프레임 번호(문자열)이고 값은 비교할 값입니다.
+    intervals (list of tuples): 구간의 리스트로, 각 구간은 (start_time, end_time) 형태의 튜플입니다.
+    frame_rate (float): 초당 프레임 수 (FPS)로, 프레임 번호를 시간으로 변환하는 데 사용됩니다.
 
     Returns:
-    dict: Dictionary containing matching rates for each interval and the total matching rate.
+    dict: 각 구간별 일치율을 담은 딕셔너리로, 키는 구간의 인덱스 또는 'total'이고 값은 일치율입니다.
     """
     matching_rates = {}
 
-    # Convert frame numbers to integers
+    # 프레임 번호를 정수로 변환하고 집합으로 저장
     frames1 = set(int(k) for k in dict1.keys())
     frames2 = set(int(k) for k in dict2.keys())
 
-    # Get common frames
+    # 두 딕셔너리에서 공통으로 존재하는 프레임 번호만 선택
     common_frames = frames1.intersection(frames2)
 
     if not common_frames:
         matching_rates['total'] = None
-        print("No common frames between the two dictionaries.")
+        print("공통된 프레임이 없습니다.")
         return matching_rates
 
-    # Compute total matching rate
+    # 전체 구간에 대한 일치율 계산
     total_frames = len(common_frames)
     matching_count = sum(
         1 for frame in common_frames if dict1[str(frame)] == dict2[str(frame)]
     )
     matching_rates['total'] = matching_count / total_frames
 
-    # Get min and max frame numbers
+    # 공통 프레임의 최소 및 최대 프레임 번호 계산
     min_frame = min(common_frames)
     max_frame = max(common_frames)
 
-    # Process specified intervals
+    # 지정된 구간별로 일치율 계산
     for idx, (start_time, end_time) in enumerate(intervals):
-        # Convert times to frame numbers
+        # 시간을 프레임 번호로 변환
         start_frame = int(start_time * frame_rate)
         if end_time == 'end':
-            end_frame = max_frame + 1  # Include last frame
+            end_frame = max_frame + 1  # 마지막 프레임까지 포함하도록 +1
         else:
             end_frame = int(end_time * frame_rate)
 
-        # Get frames in interval
+        # 해당 구간에 속하는 프레임 번호 선택
         interval_frames = [
             frame for frame in common_frames if start_frame <= frame < end_frame
         ]
 
         if not interval_frames:
-            print(f"No frames in interval {idx} ({start_time}s to {end_time}s).")
+            print(f"구간 {idx} ({start_time}s ~ {end_time}s)에 해당하는 프레임이 없습니다.")
             matching_rates[idx] = None
             continue
 
@@ -231,19 +230,19 @@ def calculate_matching_rate(dict1, dict2, intervals, frame_rate):
         matching_rate = interval_matching_count / interval_total_frames
         matching_rates[idx] = matching_rate
 
-    # Check for remaining interval after the last specified interval
+    # 마지막 지정된 구간 이후의 구간 처리
     last_end_time = intervals[-1][1]
     if last_end_time != 'end':
         if isinstance(last_end_time, (int, float)):
             last_end_frame = int(last_end_time * frame_rate)
             if last_end_frame < max_frame:
-                # There are frames after the last specified interval
+                # 마지막 지정된 구간 이후부터 마지막 프레임까지의 구간이 존재함
                 start_time = last_end_time
                 end_time = 'end'
                 start_frame = last_end_frame
-                end_frame = max_frame + 1  # Include last frame
+                end_frame = max_frame + 1  # 마지막 프레임까지 포함
 
-                # Get frames in interval
+                # 해당 구간에 속하는 프레임 번호 선택
                 interval_frames = [
                     frame for frame in common_frames if start_frame <= frame < end_frame
                 ]
@@ -254,31 +253,34 @@ def calculate_matching_rate(dict1, dict2, intervals, frame_rate):
                         1 for frame in interval_frames if dict1[str(frame)] == dict2[str(frame)]
                     )
                     matching_rate = interval_matching_count / interval_total_frames
-                    # Use next index for this interval
-                    matching_rates[idx + 1] = matching_rate
+                    # 다음 인덱스를 사용하여 이 구간의 결과를 저장
+                    matching_rates[idx + 1] = (matching_rate, start_time, end_time)
                 else:
-                    print(f"No frames in interval {idx + 1} ({start_time}s to end).")
+                    print(f"구간 {idx + 1} ({start_time}s ~ 끝)에 해당하는 프레임이 없습니다.")
                     matching_rates[idx + 1] = None
 
     return matching_rates
 
-intervals = [(0, 10), (10, 150)]
+intervals = [(0, 200), (200, 400), (400, 600), (600, 800), (800, 1000,),(1000,1200)]
 rates = calculate_matching_rate(label_data_no_segment, selected_channels, intervals, 30)
 
 if rates['total'] is not None:
-        print(f"Total matching rate: {rates['total'] * 100:.2f}%")
+        print(f"전체 구간의 일치율: {rates['total'] * 100:.2f}%")
 else:
-    print("No common frames in total interval.")
+    print("전체 구간에 해당하는 프레임이 없습니다.")
 
 for idx in sorted(k for k in rates.keys() if k != 'total'):
-    rate = rates[idx]
-    if rate is not None:
-        if idx == len(intervals):
-            print(f"Interval {idx} (150s to end): Matching rate: {rate * 100:.2f}%")
+    rate_info = rates[idx]
+    if rate_info is not None:
+        if isinstance(rate_info, tuple):
+            # 자동 추가된 마지막 구간
+            matching_rate, start_time, end_time = rate_info
+            print(f"구간 {idx} ({start_time}s ~ {end_time}): 일치율: {matching_rate * 100:.2f}%")
         else:
+            # 지정된 구간
+            matching_rate = rate_info
             start_time = intervals[idx][0]
             end_time = intervals[idx][1]
-            print(f"Interval {idx} ({start_time}s to {end_time}s): Matching rate: {rate * 100:.2f}%")
+            print(f"구간 {idx} ({start_time}s ~ {end_time}s): 일치율: {matching_rate * 100:.2f}%")
     else:
-        print(f"Interval {idx}: No frames to compare.")
-
+        print(f"구간 {idx}: 비교할 프레임이 없습니다.")
